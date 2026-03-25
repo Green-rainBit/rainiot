@@ -4,9 +4,11 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	"rainiot/iotws/internal/logic"
 	"rainiot/iotws/internal/svc"
 
 	"github.com/lxzan/gws"
@@ -19,8 +21,12 @@ const (
 
 func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
-		socket, err := svcCtx.Upgrader.Upgrade(w, r)
+		upgrader := gws.NewUpgrader(NewHandler(svcCtx), &gws.ServerOption{
+			ParallelEnabled:   true,                                 // 开启并行消息处理
+			Recovery:          gws.Recovery,                         // 开启异常恢复
+			PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
+		})
+		socket, err := upgrader.Upgrade(w, r)
 		if err != nil {
 			return
 		}
@@ -30,7 +36,15 @@ func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	}
 }
 
-type Handler struct{}
+func NewHandler(svcCtx *svc.ServiceContext) *Handler {
+	return &Handler{
+		svcCtx: svcCtx,
+	}
+}
+
+type Handler struct {
+	svcCtx *svc.ServiceContext
+}
 
 func (c *Handler) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
@@ -40,12 +54,16 @@ func (c *Handler) OnClose(socket *gws.Conn, err error) {}
 
 func (c *Handler) OnPing(socket *gws.Conn, payload []byte) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
-	_ = socket.WritePong([]byte("pong"))
+	_ = socket.WritePing(payload)
 }
 
-func (c *Handler) OnPong(socket *gws.Conn, payload []byte) {}
+func (c *Handler) OnPong(socket *gws.Conn, payload []byte) {
+	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+	_ = socket.WritePong(payload)
+}
 
 func (c *Handler) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
+	logic.NewIotwsLogic(context.Background(), c.svcCtx).Iotws(message.Bytes())
 	socket.WriteMessage(message.Opcode, message.Bytes())
 }

@@ -4,12 +4,9 @@
 package logic
 
 import (
-	"bytes"
 	"context"
-	"io"
-	"net/http"
 
-	"rainiot/iotws/internal/svc"
+	"rainiot/iotdevice/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -26,13 +23,4 @@ func NewIotwsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotwsLogic 
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
-}
-
-func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
-	resp, err := http.Post(l.svcCtx.Config.DeviceServer, "application/json", bytes.NewReader(message))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
 }

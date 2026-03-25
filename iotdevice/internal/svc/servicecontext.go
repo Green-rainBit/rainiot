@@ -4,12 +4,11 @@
 package svc
 
 import (
-	"rainiot/iotws/internal/config"
+	"rainiot/iotdevice/internal/config"
 )
 
 type ServiceContext struct {
 	Config config.Config
-	// Upgrader *gws.Upgrader
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {

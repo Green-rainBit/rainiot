@@ -7,15 +7,15 @@ import (
 	"flag"
 	"fmt"
 
-	"rainiot/iotws/internal/config"
-	"rainiot/iotws/internal/handler"
-	"rainiot/iotws/internal/svc"
+	"rainiot/iotdevice/internal/config"
+	"rainiot/iotdevice/internal/handler"
+	"rainiot/iotdevice/internal/svc"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/rest"
 )
 
-var configFile = flag.String("f", "etc/iotws-api.yaml", "the config file")
+var configFile = flag.String("f", "etc/iotdevice-api.yaml", "the config file")
 
 func main() {
 	flag.Parse()
