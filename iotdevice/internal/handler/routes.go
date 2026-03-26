@@ -17,7 +17,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/device/connect",
-				Handler: IotDeviceHandler(serverCtx),
+				Handler: IotdeviceHandler(serverCtx),
 			},
 		},
 	)

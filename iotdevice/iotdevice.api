@@ -1,15 +1,16 @@
 syntax = "v1"
 
 type Request {
-	Name string `path:"name,options=you|me"`
+	cmd  string `json:"message"`
+	data []byte `json:"data"`
 }
 
 type Response {
 	Message string `json:"message"`
 }
 
-service iotws-api {
-	@handler IotwsHandler
-	get /from/:name (Request) returns (Response)
+service iotdevice-api {
+	@handler IotdeviceHandler
+	post /device/connect (Request) returns (Response)
 }
 

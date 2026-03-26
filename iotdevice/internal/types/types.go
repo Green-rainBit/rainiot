@@ -4,7 +4,8 @@
 package types
 
 type Request struct {
-	Name string `path:"name,options=you|me"`
+	Cmd  string `json:"message"`
+	Data []byte `json:"data"`
 }
 
 type Response struct {
