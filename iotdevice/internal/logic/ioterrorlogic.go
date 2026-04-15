@@ -28,6 +28,8 @@ func newIotErrorLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotError
 
 func (l *iotErrorLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
 	// todo: add your logic here and delete this line
-
-	return
+	resp = &types.Response{
+		Message: "error",
+	}
+	return resp, nil
 }

@@ -11,3 +11,8 @@ type Request struct {
 type Response struct {
 	Message string `json:"message"`
 }
+
+type DeviceLogin struct {
+	// Id int64  `json:"id"`
+	Sn string `json:"sn"`
+}

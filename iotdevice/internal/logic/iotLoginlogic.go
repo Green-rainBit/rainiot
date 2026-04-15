@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 
 	"rainiot/iotdevice/internal/svc"
 	"rainiot/iotdevice/internal/types"
@@ -28,6 +29,19 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 
 func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
 	// todo: add your logic here and delete this line
+	deviceLoginReq := &types.DeviceLogin{}
+	err = json.Unmarshal(req.Data, &deviceLoginReq)
+	if err != nil {
+		return nil, err
+	}
+	_, err = l.svcCtx.DeviceModel.FindOneBySn(l.ctx, deviceLoginReq.Sn)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	l.svcCtx.Redis.Set(l.ctx, deviceLoginReq.Sn, "1", 0)
+	
+	return &types.Response{
+		Message: "success",
+	}, nil
 }

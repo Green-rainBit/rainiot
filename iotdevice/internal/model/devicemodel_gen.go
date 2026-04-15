@@ -12,6 +12,7 @@ import (
 
 	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/cache"
+	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/core/stringx"
@@ -24,12 +25,14 @@ var (
 	deviceRowsWithPlaceHolder = strings.Join(stringx.Remove(deviceFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
 
 	cacheDeviceIdPrefix = "cache:device:id:"
+	cacheDeviceSnPrefix = "cache:device:sn:"
 )
 
 type (
 	deviceModel interface {
 		Insert(ctx context.Context, data *Device) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*Device, error)
+		FindOneBySn(ctx context.Context, sn string) (*Device, error)
 		Update(ctx context.Context, data *Device) error
 		Delete(ctx context.Context, id int64) error
 	}
@@ -45,19 +48,25 @@ type (
 	}
 )
 
-func newDeviceModel(conn sqlx.SqlConn, c cache.CacheConf, opts ...cache.Option) *defaultDeviceModel {
+func newDeviceModel(conn sqlx.SqlConn, rds *redis.Redis, opts ...cache.Option) *defaultDeviceModel {
 	return &defaultDeviceModel{
-		CachedConn: sqlc.NewConn(conn, c, opts...),
+		CachedConn: sqlc.NewNodeConn(conn, rds, opts...),
 		table:      "`device`",
 	}
 }
 
 func (m *defaultDeviceModel) Delete(ctx context.Context, id int64) error {
+	data, err := m.FindOne(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, id)
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
+	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
+	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
 		return conn.ExecCtx(ctx, query, id)
-	}, deviceIdKey)
+	}, deviceIdKey, deviceSnKey)
 	return err
 }
 
@@ -78,21 +87,48 @@ func (m *defaultDeviceModel) FindOne(ctx context.Context, id int64) (*Device, er
 	}
 }
 
+func (m *defaultDeviceModel) FindOneBySn(ctx context.Context, sn string) (*Device, error) {
+	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, sn)
+	var resp Device
+	err := m.QueryRowIndexCtx(ctx, &resp, deviceSnKey, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (i any, e error) {
+		query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
+		if err := conn.QueryRowCtx(ctx, &resp, query, sn); err != nil {
+			return nil, err
+		}
+		return resp.Id, nil
+	}, m.queryPrimary)
+	switch err {
+	case nil:
+		return &resp, nil
+	case sqlc.ErrNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
+}
+
 func (m *defaultDeviceModel) Insert(ctx context.Context, data *Device) (sql.Result, error) {
 	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, data.Id)
+	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
 	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("insert into %s (%s) values (?)", m.table, deviceRowsExpectAutoSet)
 		return conn.ExecCtx(ctx, query, data.Sn)
-	}, deviceIdKey)
+	}, deviceIdKey, deviceSnKey)
 	return ret, err
 }
 
-func (m *defaultDeviceModel) Update(ctx context.Context, data *Device) error {
+func (m *defaultDeviceModel) Update(ctx context.Context, newData *Device) error {
+	data, err := m.FindOne(ctx, newData.Id)
+	if err != nil {
+		return err
+	}
+
 	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, data.Id)
-	_, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
+	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
+	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
 		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, deviceRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, data.Sn, data.Id)
-	}, deviceIdKey)
+		return conn.ExecCtx(ctx, query, newData.Sn, newData.Id)
+	}, deviceIdKey, deviceSnKey)
 	return err
 }
 
