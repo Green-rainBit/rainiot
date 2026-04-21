@@ -5,6 +5,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"time"
 
@@ -43,14 +44,37 @@ func NewHandler(svcCtx *svc.ServiceContext) *Handler {
 }
 
 type Handler struct {
+	sn     string
 	svcCtx *svc.ServiceContext
 }
 
 func (c *Handler) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+	go func() {
+		time.Sleep(2 * time.Second)
+		if c.sn == "" { // 缓存设备sn
+			c.ServerOnClose(socket, errors.New("timeout"))
+		}
+	}()
 }
 
-func (c *Handler) OnClose(socket *gws.Conn, err error) {}
+func (c *Handler) ServerOnClose(socket *gws.Conn, err error) {
+	if err != nil {
+		socket.WriteMessage(gws.OpcodeText, []byte(err.Error()))
+	}
+	if c.sn != "" { // 断开连接时删除缓存
+		c.svcCtx.Redis.Del(context.Background(), c.sn)
+		c.svcCtx.Connection.Del(c.sn)
+	}
+	socket.NetConn().Close()
+}
+
+func (c *Handler) OnClose(socket *gws.Conn, err error) {
+	if c.sn != "" { // 断开连接时删除缓存
+		c.svcCtx.Redis.Del(context.Background(), c.sn)
+		c.svcCtx.Connection.Del(c.sn)
+	}
+}
 
 func (c *Handler) OnPing(socket *gws.Conn, payload []byte) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
@@ -64,6 +88,18 @@ func (c *Handler) OnPong(socket *gws.Conn, payload []byte) {
 
 func (c *Handler) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
-	logic.NewIotwsLogic(context.Background(), c.svcCtx).Iotws(message.Bytes())
-	socket.WriteMessage(message.Opcode, message.Bytes())
+	by, err := logic.NewIotwsLogic(context.Background(), c.svcCtx).Iotws(message.Bytes())
+
+	if c.sn != "" {
+		if err != nil {
+			defer c.ServerOnClose(socket, err)
+			return
+		}
+		socket.WriteMessage(message.Opcode, by)
+	} else {
+		c.sn = string(message.Bytes())
+		c.svcCtx.Connection.Storage(c.sn, socket)
+		socket.WriteMessage(message.Opcode, by)
+	}
+
 }

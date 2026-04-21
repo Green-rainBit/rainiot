@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	goredis "github.com/redis/go-redis/v9"
-	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
@@ -21,15 +20,13 @@ type ServiceContext struct {
 
 func NewServiceContext(c config.Config) *ServiceContext {
 	conn := sqlx.NewMysql(c.DataSource)
-	redis := redis.MustNewRedis(c.CacheRedis)
-
 	client := goredis.NewClusterClient(&goredis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
 	return &ServiceContext{
 		Config:      c,
-		DeviceModel: model.NewDeviceModel(conn, redis),
+		DeviceModel: model.NewDeviceModel(conn),
 		Redis:       client,
 	}
 }

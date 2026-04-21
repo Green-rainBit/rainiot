@@ -1,8 +1,6 @@
 package model
 
 import (
-	"github.com/zeromicro/go-zero/core/stores/cache"
-	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
@@ -21,8 +19,8 @@ type (
 )
 
 // NewDeviceModel returns a model for the database table.
-func NewDeviceModel(conn sqlx.SqlConn, rds *redis.Redis, opts ...cache.Option) DeviceModel {
+func NewDeviceModel(conn sqlx.SqlConn) DeviceModel {
 	return &customDeviceModel{
-		defaultDeviceModel: newDeviceModel(conn, rds, opts...),
+		defaultDeviceModel: newDeviceModel(conn),
 	}
 }

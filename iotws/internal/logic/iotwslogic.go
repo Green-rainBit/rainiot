@@ -6,10 +6,12 @@ package logic
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
 	"rainiot/iotws/internal/svc"
+
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -34,5 +36,11 @@ func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("")
+	}
+
 	return io.ReadAll(resp.Body)
 }
+
+

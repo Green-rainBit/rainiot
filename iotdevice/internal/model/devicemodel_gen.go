@@ -11,9 +11,6 @@ import (
 	"strings"
 
 	"github.com/zeromicro/go-zero/core/stores/builder"
-	"github.com/zeromicro/go-zero/core/stores/cache"
-	"github.com/zeromicro/go-zero/core/stores/redis"
-	"github.com/zeromicro/go-zero/core/stores/sqlc"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 	"github.com/zeromicro/go-zero/core/stringx"
 )
@@ -23,9 +20,6 @@ var (
 	deviceRows                = strings.Join(deviceFieldNames, ",")
 	deviceRowsExpectAutoSet   = strings.Join(stringx.Remove(deviceFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), ",")
 	deviceRowsWithPlaceHolder = strings.Join(stringx.Remove(deviceFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
-
-	cacheDeviceIdPrefix = "cache:device:id:"
-	cacheDeviceSnPrefix = "cache:device:sn:"
 )
 
 type (
@@ -33,12 +27,13 @@ type (
 		Insert(ctx context.Context, data *Device) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*Device, error)
 		FindOneBySn(ctx context.Context, sn string) (*Device, error)
+		GetOneBySn(ctx context.Context, sn string) (*Device, bool, error)
 		Update(ctx context.Context, data *Device) error
 		Delete(ctx context.Context, id int64) error
 	}
 
 	defaultDeviceModel struct {
-		sqlc.CachedConn
+		conn  sqlx.SqlConn
 		table string
 	}
 
@@ -48,39 +43,27 @@ type (
 	}
 )
 
-func newDeviceModel(conn sqlx.SqlConn, rds *redis.Redis, opts ...cache.Option) *defaultDeviceModel {
+func newDeviceModel(conn sqlx.SqlConn) *defaultDeviceModel {
 	return &defaultDeviceModel{
-		CachedConn: sqlc.NewNodeConn(conn, rds, opts...),
-		table:      "`device`",
+		conn:  conn,
+		table: "`device`",
 	}
 }
 
 func (m *defaultDeviceModel) Delete(ctx context.Context, id int64) error {
-	data, err := m.FindOne(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, id)
-	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
-		return conn.ExecCtx(ctx, query, id)
-	}, deviceIdKey, deviceSnKey)
+	query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
+	_, err := m.conn.ExecCtx(ctx, query, id)
 	return err
 }
 
 func (m *defaultDeviceModel) FindOne(ctx context.Context, id int64) (*Device, error) {
-	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, id)
+	query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", deviceRows, m.table)
 	var resp Device
-	err := m.QueryRowCtx(ctx, &resp, deviceIdKey, func(ctx context.Context, conn sqlx.SqlConn, v any) error {
-		query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", deviceRows, m.table)
-		return conn.QueryRowCtx(ctx, v, query, id)
-	})
+	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	switch err {
 	case nil:
 		return &resp, nil
-	case sqlc.ErrNotFound:
+	case sqlx.ErrNotFound:
 		return nil, ErrNotFound
 	default:
 		return nil, err
@@ -88,57 +71,43 @@ func (m *defaultDeviceModel) FindOne(ctx context.Context, id int64) (*Device, er
 }
 
 func (m *defaultDeviceModel) FindOneBySn(ctx context.Context, sn string) (*Device, error) {
-	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, sn)
 	var resp Device
-	err := m.QueryRowIndexCtx(ctx, &resp, deviceSnKey, m.formatPrimary, func(ctx context.Context, conn sqlx.SqlConn, v any) (i any, e error) {
-		query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
-		if err := conn.QueryRowCtx(ctx, &resp, query, sn); err != nil {
-			return nil, err
-		}
-		return resp.Id, nil
-	}, m.queryPrimary)
+	query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
+	err := m.conn.QueryRowCtx(ctx, &resp, query, sn)
 	switch err {
 	case nil:
 		return &resp, nil
-	case sqlc.ErrNotFound:
+	case sqlx.ErrNotFound:
 		return nil, ErrNotFound
 	default:
 		return nil, err
 	}
 }
 
+func (m *defaultDeviceModel) GetOneBySn(ctx context.Context, sn string) (*Device, bool, error) {
+	var resp Device
+	query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
+	err := m.conn.QueryRowCtx(ctx, &resp, query, sn)
+	switch err {
+	case nil:
+		return &resp, true, nil
+	case sqlx.ErrNotFound:
+		return nil, false, nil
+	default:
+		return nil, false, err
+	}
+}
+
 func (m *defaultDeviceModel) Insert(ctx context.Context, data *Device) (sql.Result, error) {
-	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, data.Id)
-	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
-	ret, err := m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("insert into %s (%s) values (?)", m.table, deviceRowsExpectAutoSet)
-		return conn.ExecCtx(ctx, query, data.Sn)
-	}, deviceIdKey, deviceSnKey)
+	query := fmt.Sprintf("insert into %s (%s) values (?)", m.table, deviceRowsExpectAutoSet)
+	ret, err := m.conn.ExecCtx(ctx, query, data.Sn)
 	return ret, err
 }
 
 func (m *defaultDeviceModel) Update(ctx context.Context, newData *Device) error {
-	data, err := m.FindOne(ctx, newData.Id)
-	if err != nil {
-		return err
-	}
-
-	deviceIdKey := fmt.Sprintf("%s%v", cacheDeviceIdPrefix, data.Id)
-	deviceSnKey := fmt.Sprintf("%s%v", cacheDeviceSnPrefix, data.Sn)
-	_, err = m.ExecCtx(ctx, func(ctx context.Context, conn sqlx.SqlConn) (result sql.Result, err error) {
-		query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, deviceRowsWithPlaceHolder)
-		return conn.ExecCtx(ctx, query, newData.Sn, newData.Id)
-	}, deviceIdKey, deviceSnKey)
+	query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, deviceRowsWithPlaceHolder)
+	_, err := m.conn.ExecCtx(ctx, query, newData.Sn, newData.Id)
 	return err
-}
-
-func (m *defaultDeviceModel) formatPrimary(primary any) string {
-	return fmt.Sprintf("%s%v", cacheDeviceIdPrefix, primary)
-}
-
-func (m *defaultDeviceModel) queryPrimary(ctx context.Context, conn sqlx.SqlConn, v, primary any) error {
-	query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", deviceRows, m.table)
-	return conn.QueryRowCtx(ctx, v, query, primary)
 }
 
 func (m *defaultDeviceModel) tableName() string {

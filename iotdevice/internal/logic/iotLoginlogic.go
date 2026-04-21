@@ -6,6 +6,7 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"rainiot/iotdevice/internal/svc"
 	"rainiot/iotdevice/internal/types"
@@ -34,13 +35,33 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 	if err != nil {
 		return nil, err
 	}
-	_, err = l.svcCtx.DeviceModel.FindOneBySn(l.ctx, deviceLoginReq.Sn)
+	if deviceLoginReq.Sn == "" {
+		return nil, errors.New("设备sn不能为空")
+	}
+
+	exists, err := l.svcCtx.Redis.Exists(l.ctx, "conn:"+deviceLoginReq.Sn).Result()
 	if err != nil {
 		return nil, err
 	}
+	if exists == 1 {
+		return nil, errors.New("设备已登录")
+	}
 
-	l.svcCtx.Redis.Set(l.ctx, deviceLoginReq.Sn, "1", 0)
-	
+	exists, err = l.svcCtx.Redis.Exists(l.ctx, deviceLoginReq.Sn).Result()
+	if err != nil {
+		return nil, err
+	}
+	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, deviceLoginReq.Sn)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, errors.New("设备不存在")
+	}
+	err = l.svcCtx.Redis.Set(l.ctx, deviceLoginReq.Sn, "1", 0).Err()
+	if err != nil {
+		return nil, err
+	}
 	return &types.Response{
 		Message: "success",
 	}, nil
