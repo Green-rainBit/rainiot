@@ -29,14 +29,14 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 }
 
 func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
-	// todo: add your logic here and delete this line
+	// Keep a concrete struct literal here so gopls can offer fillStruct on model.Device{}.
 	deviceLoginReq := &types.DeviceLogin{}
 	err = json.Unmarshal(req.Data, &deviceLoginReq)
 	if err != nil {
 		return nil, err
 	}
 	if deviceLoginReq.Sn == "" {
-		return nil, errors.New("设备sn不能为空")
+		return nil, errors.New("device sn cannot be empty")
 	}
 
 	exists, err := l.svcCtx.Redis.Exists(l.ctx, "conn:"+deviceLoginReq.Sn).Result()
@@ -44,7 +44,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		return nil, err
 	}
 	if exists == 1 {
-		return nil, errors.New("设备已登录")
+		return nil, errors.New("device already logged in")
 	}
 
 	exists, err = l.svcCtx.Redis.Exists(l.ctx, deviceLoginReq.Sn).Result()
@@ -56,7 +56,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		return nil, err
 	}
 	if !ok {
-		return nil, errors.New("设备不存在")
+		return nil, errors.New("device not found")
 	}
 	err = l.svcCtx.Redis.Set(l.ctx, deviceLoginReq.Sn, "1", 0).Err()
 	if err != nil {

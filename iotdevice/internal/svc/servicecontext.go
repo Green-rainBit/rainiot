@@ -5,7 +5,7 @@ package svc
 
 import (
 	"rainiot/iotdevice/internal/config"
-	"rainiot/iotdevice/internal/model"
+	"rainiot/iotdevice/model"
 	"strings"
 
 	goredis "github.com/redis/go-redis/v9"
