@@ -37,10 +37,3 @@ func (c *connection) Get(sn string) (any, bool) {
 func (c *connection) GetNumber(sn string) int64 {
 	return c.count
 }
-
-// func (c *connection) NumberCorrection() {
-// 	c.soketMap.Range(func(key any, value any) bool {
-
-// 		return true
-// 	})
-// }
