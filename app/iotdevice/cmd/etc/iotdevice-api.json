@@ -1,0 +1,10 @@
+{
+  "Name": "iotdevice-api",
+  "Host": "0.0.0.0",
+  "Port": 8888,
+  "DataSource": "",
+  "CacheRedis": {
+    "Host": "",
+    "Type": "cluster"
+  }
+}

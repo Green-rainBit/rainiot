@@ -1,8 +1,6 @@
 *.yml
 /.vscode
 /.goctl
-iotdevice/etc
-iotdevice/etc/iotdevice-api.yaml
-iotdevice/etc/sql/device.sql
+
 .mcp.json
 .claude/settings.json

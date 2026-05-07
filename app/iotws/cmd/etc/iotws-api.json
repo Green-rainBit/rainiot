@@ -1,0 +1,12 @@
+{
+  "Name": "iotws-api",
+  "Host": "0.0.0.0",
+  "Port": 8888,
+  "CacheRedis": {
+    "Host": "",
+    "Type": "cluster"
+  },
+  "DeviceServer": "",
+  "DevicePort": 0,
+  "DviceHost": ""
+}
