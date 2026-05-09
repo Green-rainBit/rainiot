@@ -8,5 +8,10 @@ type Request struct {
 }
 
 type Response struct {
-	Message string `json:"message"`
+	Cmd  string `json:"cmd"`
+	Data any    `json:"data"`
+}
+
+type WsBalanced struct {
+	Targeted string `json:"targeted"`
 }

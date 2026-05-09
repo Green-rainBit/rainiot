@@ -46,6 +46,8 @@ func (l *IotwsBalancedLogic) IotwsBalanced() {
 	offset := 0
 	if meanws/5 > 20 {
 		offset = meanws / 5
+	} else {
+		return
 	}
 	// balanced ws in 20% range fluctuation
 	for serverName, totalws := range wsBalancedMap {

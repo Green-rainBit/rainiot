@@ -28,7 +28,7 @@ func NewIotwsNoticeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Iotws
 }
 
 func (l *IotwsNoticeLogic) IotNotice(sn string, message []byte) (err error) {
-	conn, ok := l.svcCtx.Connection.Get(sn)
+	conn, ok := l.svcCtx.Connection.GetconnBySn(sn)
 	if !ok {
 		return errors.New("设备未连接")
 	}

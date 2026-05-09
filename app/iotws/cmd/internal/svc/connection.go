@@ -30,10 +30,24 @@ func (c *connection) Del(sn string) {
 	c.soketMap.Delete(sn)
 }
 
-func (c *connection) Get(sn string) (any, bool) {
+func (c *connection) GetconnBySn(sn string) (any, bool) {
 	return c.soketMap.Load(sn)
 }
 
 func (c *connection) GetNumber() int64 {
 	return c.count
+}
+
+func (c *connection) GetConnByCount(count int) ([]any, bool) {
+	conns := make([]any, count)
+	i := 0
+	c.soketMap.Range(func(key, conn any) bool {
+		i++
+		if i >= count {
+			return false
+		}
+		conns[i] = conn
+		return true
+	})
+	return conns, true
 }
