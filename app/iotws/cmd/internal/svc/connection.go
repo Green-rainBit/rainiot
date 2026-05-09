@@ -34,6 +34,6 @@ func (c *connection) Get(sn string) (any, bool) {
 	return c.soketMap.Load(sn)
 }
 
-func (c *connection) GetNumber(sn string) int64 {
+func (c *connection) GetNumber() int64 {
 	return c.count
 }

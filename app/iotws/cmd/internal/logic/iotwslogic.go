@@ -36,7 +36,8 @@ func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("")
+		bodyByte, _ := io.ReadAll(resp.Body)
+		return nil, errors.New(string(bodyByte))
 	}
 
 	return io.ReadAll(resp.Body)

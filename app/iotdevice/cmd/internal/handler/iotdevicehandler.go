@@ -4,6 +4,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"rainiot/app/iotdevice/cmd/internal/logic"
@@ -16,7 +17,7 @@ import (
 func IotdeviceHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.Request
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := parseIotdeviceRequest(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -29,4 +30,8 @@ func IotdeviceHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			httpx.OkJsonCtx(r.Context(), w, resp)
 		}
 	}
+}
+
+func parseIotdeviceRequest(r *http.Request, req *types.Request) error {
+	return json.NewDecoder(r.Body).Decode(req)
 }

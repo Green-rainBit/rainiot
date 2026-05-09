@@ -10,16 +10,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"github.com/zeromicro/go-zero/core/stringx"
 )
 
 var (
-	deviceFieldNames          = builder.RawFieldNames(&Device{})
+	deviceFieldNames          = []string{"id", "sn"}
 	deviceRows                = strings.Join(deviceFieldNames, ",")
-	deviceRowsExpectAutoSet   = strings.Join(stringx.Remove(deviceFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), ",")
-	deviceRowsWithPlaceHolder = strings.Join(stringx.Remove(deviceFieldNames, "`id`", "`create_at`", "`create_time`", "`created_at`", "`update_at`", "`update_time`", "`updated_at`"), "=?,") + "=?"
+	deviceRowsExpectAutoSet   = "sn"
+	deviceRowsWithPlaceHolder = "sn=$1"
 )
 
 type (
@@ -46,18 +44,18 @@ type (
 func newDeviceModel(conn sqlx.SqlConn) *defaultDeviceModel {
 	return &defaultDeviceModel{
 		conn:  conn,
-		table: "`device`",
+		table: "device",
 	}
 }
 
 func (m *defaultDeviceModel) Delete(ctx context.Context, id int64) error {
-	query := fmt.Sprintf("delete from %s where `id` = ?", m.table)
+	query := fmt.Sprintf("delete from %s where id = $1", m.table)
 	_, err := m.conn.ExecCtx(ctx, query, id)
 	return err
 }
 
 func (m *defaultDeviceModel) FindOne(ctx context.Context, id int64) (*Device, error) {
-	query := fmt.Sprintf("select %s from %s where `id` = ? limit 1", deviceRows, m.table)
+	query := fmt.Sprintf("select %s from %s where id = $1 limit 1", deviceRows, m.table)
 	var resp Device
 	err := m.conn.QueryRowCtx(ctx, &resp, query, id)
 	switch err {
@@ -72,7 +70,7 @@ func (m *defaultDeviceModel) FindOne(ctx context.Context, id int64) (*Device, er
 
 func (m *defaultDeviceModel) FindOneBySn(ctx context.Context, sn string) (*Device, error) {
 	var resp Device
-	query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
+	query := fmt.Sprintf("select %s from %s where sn = $1 limit 1", deviceRows, m.table)
 	err := m.conn.QueryRowCtx(ctx, &resp, query, sn)
 	switch err {
 	case nil:
@@ -86,7 +84,7 @@ func (m *defaultDeviceModel) FindOneBySn(ctx context.Context, sn string) (*Devic
 
 func (m *defaultDeviceModel) GetOneBySn(ctx context.Context, sn string) (*Device, bool, error) {
 	var resp Device
-	query := fmt.Sprintf("select %s from %s where `sn` = ? limit 1", deviceRows, m.table)
+	query := fmt.Sprintf("select %s from %s where sn = $1 limit 1", deviceRows, m.table)
 	err := m.conn.QueryRowCtx(ctx, &resp, query, sn)
 	switch err {
 	case nil:
@@ -99,13 +97,13 @@ func (m *defaultDeviceModel) GetOneBySn(ctx context.Context, sn string) (*Device
 }
 
 func (m *defaultDeviceModel) Insert(ctx context.Context, data *Device) (sql.Result, error) {
-	query := fmt.Sprintf("insert into %s (%s) values (?)", m.table, deviceRowsExpectAutoSet)
+	query := fmt.Sprintf("insert into %s (%s) values ($1)", m.table, deviceRowsExpectAutoSet)
 	ret, err := m.conn.ExecCtx(ctx, query, data.Sn)
 	return ret, err
 }
 
 func (m *defaultDeviceModel) Update(ctx context.Context, newData *Device) error {
-	query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, deviceRowsWithPlaceHolder)
+	query := fmt.Sprintf("update %s set %s where id = $2", m.table, deviceRowsWithPlaceHolder)
 	_, err := m.conn.ExecCtx(ctx, query, newData.Sn, newData.Id)
 	return err
 }

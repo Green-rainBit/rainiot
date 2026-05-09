@@ -5,7 +5,6 @@ package logic
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
@@ -29,17 +28,10 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 }
 
 func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
-	// Keep a concrete struct literal here so gopls can offer fillStruct on model.Device{}.
-	deviceLoginReq := &types.DeviceLogin{}
-	err = json.Unmarshal(req.Data, &deviceLoginReq)
-	if err != nil {
-		return nil, err
-	}
-	if deviceLoginReq.Sn == "" {
+	if req.Sn == "" {
 		return nil, errors.New("device sn cannot be empty")
 	}
-
-	exists, err := l.svcCtx.Redis.Exists(l.ctx, "conn:"+deviceLoginReq.Sn).Result()
+	exists, err := l.svcCtx.Redis.Exists(l.ctx, "conn:"+req.Sn).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -47,18 +39,19 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		return nil, errors.New("device already logged in")
 	}
 
-	exists, err = l.svcCtx.Redis.Exists(l.ctx, deviceLoginReq.Sn).Result()
+	exists, err = l.svcCtx.Redis.Exists(l.ctx, req.Sn).Result()
 	if err != nil {
+		l.Logger.Errorf("redis Exists", err)
 		return nil, err
 	}
-	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, deviceLoginReq.Sn)
+	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.Sn)
 	if err != nil {
 		return nil, err
 	}
 	if !ok {
 		return nil, errors.New("device not found")
 	}
-	err = l.svcCtx.Redis.Set(l.ctx, deviceLoginReq.Sn, "1", 0).Err()
+	err = l.svcCtx.Redis.Set(l.ctx, req.Sn, "1", 0).Err()
 	if err != nil {
 		return nil, err
 	}

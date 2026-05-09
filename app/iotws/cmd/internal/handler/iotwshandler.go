@@ -51,7 +51,7 @@ type Handler struct {
 func (c *Handler) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
 	go func() {
-		time.Sleep(2 * time.Second)
+		time.Sleep(PingInterval)
 		if c.sn == "" { // 缓存设备sn
 			c.ServerOnClose(socket, errors.New("timeout"))
 		}
@@ -90,15 +90,15 @@ func (c *Handler) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
 	by, err := logic.NewIotwsLogic(context.Background(), c.svcCtx).Iotws(message.Bytes())
 
-	if c.sn != "" {
+	if c.sn == "" {
 		if err != nil {
 			defer c.ServerOnClose(socket, err)
 			return
 		}
-		socket.WriteMessage(message.Opcode, by)
-	} else {
 		c.sn = string(message.Bytes())
 		c.svcCtx.Connection.Storage(c.sn, socket)
+		socket.WriteMessage(message.Opcode, by)
+	} else {
 		socket.WriteMessage(message.Opcode, by)
 	}
 

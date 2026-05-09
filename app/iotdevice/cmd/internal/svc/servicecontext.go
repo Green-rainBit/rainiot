@@ -12,6 +12,7 @@ import (
 	"rainiot/pkg/nacos"
 	"rainiot/pkg/openconfig"
 
+	_ "github.com/lib/pq"
 	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
@@ -26,7 +27,11 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	nacos.InitNacosConfig(nacosconfig, func(namespace, group, dataId, data string) {
 		fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
 	})
-	conn := sqlx.NewMysql(c.DataSource)
+	driverName := strings.TrimSpace(c.DriverName)
+	if driverName == "" {
+		driverName = "postgres"
+	}
+	conn := sqlx.NewSqlConn(driverName, c.DataSource)
 	client := goredis.NewClusterClient(&goredis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,

@@ -4,7 +4,8 @@
   "Port": 8888,
   "DataSource": "",
   "CacheRedis": {
-    "Host": "",
-    "Type": "cluster"
+    "type": "cluster",
+    "Host": "127.0.0.1:6379,127.0.0.1:6378,127.0.0.1:6377",
+    "Pass": "123456"
   }
 }

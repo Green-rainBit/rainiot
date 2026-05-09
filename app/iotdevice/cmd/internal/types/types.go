@@ -3,9 +3,12 @@
 
 package types
 
+import "encoding/json"
+
 type Request struct {
-	Cmd  string `json:"message"`
-	Data []byte `json:"data"`
+	Cmd  string          `json:"cmd"`
+	Sn   string          `json:"sn"`
+	Data json.RawMessage `json:"data"`
 }
 
 type Response struct {

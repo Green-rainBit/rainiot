@@ -10,7 +10,10 @@ import (
 
 type Config struct {
 	rest.RestConf
-	DriverName string
-	DataSource string
+
 	CacheRedis redis.RedisConf
+
+	DeviceServer string
+	DevicePort   int
+	DviceHost    string
 }

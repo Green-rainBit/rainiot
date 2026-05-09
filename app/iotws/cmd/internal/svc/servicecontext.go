@@ -7,18 +7,19 @@ import (
 	"strings"
 
 	"rainiot/app/iotws/cmd/internal/config"
+	"rainiot/pkg/openconfig"
 
-	goredis "github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9"
 )
 
 type ServiceContext struct {
 	Config     config.Config
-	Redis      *goredis.ClusterClient
+	Redis      *redis.ClusterClient
 	Connection *connection
 }
 
-func NewServiceContext(c config.Config) *ServiceContext {
-	client := goredis.NewClusterClient(&goredis.ClusterOptions{
+func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
+	client := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})

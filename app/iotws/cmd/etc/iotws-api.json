@@ -3,8 +3,9 @@
   "Host": "0.0.0.0",
   "Port": 8888,
   "CacheRedis": {
-    "Host": "",
-    "Type": "cluster"
+    "type": "cluster",
+    "Host": "127.0.0.1:6379,127.0.0.1:6378,127.0.0.1:6377",
+    "Pass": "123456"
   },
   "DeviceServer": "",
   "DevicePort": 0,

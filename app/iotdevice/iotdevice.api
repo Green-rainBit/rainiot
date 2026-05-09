@@ -1,8 +1,8 @@
 syntax = "v1"
 
 type Request {
-	cmd  string `json:"message"`
-	data []byte `json:"data"`
+	cmd  string `json:"cmd"`
+	data any    `json:"data"`
 }
 
 type Response {
@@ -13,4 +13,3 @@ service iotdevice-api {
 	@handler IotdeviceHandler
 	post /device/connect (Request) returns (Response)
 }
-
