@@ -6,7 +6,7 @@ package logic
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"time"
 
 	"rainiot/app/iotcron/cmd/internal/svc"
 	"rainiot/pkg/cache"
@@ -28,7 +28,15 @@ func NewIotwsBalancedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Iot
 	}
 }
 
-func (l *IotwsBalancedLogic) IotwsBalanced() {
+func (l *IotwsBalancedLogic) TryBalance(reason string) {
+	timeUnix, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheWsBalancedLastat()).Int64()
+	if err != nil {
+		return
+	}
+	timeLastat := time.Unix(timeUnix, 0)
+	if timeLastat.Add(time.Minute * time.Duration(5)).After(time.Now()) {
+		return
+	}
 	keys, err := l.svcCtx.Redis.Keys(l.ctx, cache.GetWsBalancedPublishCache("")).Result()
 	if err != nil {
 		return
@@ -36,20 +44,16 @@ func (l *IotwsBalancedLogic) IotwsBalanced() {
 	wsBalancedMap := make(map[string]int, len(keys))
 	totalws := 0
 	for _, key := range keys {
-		amount, err := l.svcCtx.Redis.GetDel(l.ctx, key).Result()
+		wsBalancedMap[key], err = l.svcCtx.Redis.GetDel(l.ctx, key).Int()
 		if err != nil {
 			l.Logger.Error(fmt.Sprintf("getdel error: %v", err))
 			continue
 		}
-		if amount == "" {
-			continue
-		}
-		wsBalancedMap[key], err = strconv.Atoi(amount)
-		if err != nil {
-			l.Logger.Error(fmt.Sprintf("atoi error: %v", err))
-			continue
-		}
+		totalws += wsBalancedMap[key]
 	}
+}
+
+func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws int) {
 
 	meanws := totalws / len(wsBalancedMap)
 	disconnectWsserver := map[string]int{}
@@ -107,5 +111,6 @@ func (l *IotwsBalancedLogic) IotwsBalanced() {
 		}
 		l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), pub)
 	}
+	return
 
 }

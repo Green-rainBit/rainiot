@@ -33,13 +33,13 @@ func (l *iotsyncLogic) Iotsync() {
 	value := l.svcCtx.Connection.GetNumber()
 	expiration := time.Duration(5) * time.Second
 
-	err := cache.Lock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
-	if err != nil {
-		return
-	}
-	defer cache.Unlock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
+	// err := cache.Lock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
+	// if err != nil {
+	// 	return
+	// }
+	// defer cache.Unlock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
 
-	err = l.svcCtx.Redis.SetXX(l.ctx, key, value, expiration).Err()
+	err := l.svcCtx.Redis.SetXX(l.ctx, key, value, expiration).Err()
 	if err != nil {
 		l.Logger.Error(fmt.Sprintf("iotsyncLogic iotsync setxx error: %v", err))
 	}

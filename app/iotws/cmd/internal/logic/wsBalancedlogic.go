@@ -3,6 +3,8 @@ package logic
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"time"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
@@ -27,15 +29,16 @@ func NewWsBalancedHandler(svcCtx *svc.ServiceContext) *wsBalancedHandler {
 }
 
 // every one minute exec : if return err != nil , asynq will retry
+
 func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
-	err := cache.BlockUntilLock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
-	if err != nil {
-		return err
-	}
-	defer cache.Unlock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
+	// err := cache.BlockUntilLock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
+	// if err != nil {
+	// 	return err
+	// }
+	// defer cache.Unlock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
 
 	pub := cache.WsBalancedPublish{}
-	err = json.Unmarshal(task.Payload(), &pub)
+	err := json.Unmarshal(task.Payload(), &pub)
 	if err != nil {
 		return err
 	}
@@ -80,6 +83,10 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 			severNumber++
 		}
 	}
-
+	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLastat(), time.Now().Unix(), -1).Err()
+	if err != nil {
+		l.Logger.Error(fmt.Sprintf("wsBalancedHandler iotsync set error: %v", err))
+		return err
+	}
 	return nil
 }

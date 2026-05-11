@@ -3,9 +3,10 @@ package cache
 import "time"
 
 const (
-	cacheKeyPrefix    = "iot:cache:"
-	cacheWsServerName = "iot:ws:server:"
-	cacheWsConn       = "iot:ws:conn:"
+	cacheKeyPrefix        = "iot:cache:"
+	cacheWsServerName     = "iot:ws:server:"
+	cacheWsConn           = "iot:ws:conn:"
+	cacheWsBalancedLastat = "iot:ws:balance:lastat"
 
 	LockTimne = 10 * time.Second
 )
@@ -24,4 +25,8 @@ func GetCacheWsConn() string {
 
 func GetCacheWsServerName(id string) string {
 	return cacheWsServerName + id
+}
+
+func GetCacheWsBalancedLastat() string {
+	return cacheWsBalancedLastat
 }
