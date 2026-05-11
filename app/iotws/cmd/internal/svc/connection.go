@@ -38,9 +38,9 @@ func (c *connection) GetNumber() int64 {
 	return c.count
 }
 
-func (c *connection) GetConnByCount(count int) ([]any, bool) {
+func (c *connection) GetConnByCount(count int64) ([]any, bool) {
 	conns := make([]any, count)
-	i := 0
+	i := int64(0)
 	c.soketMap.Range(func(key, conn any) bool {
 		i++
 		if i >= count {

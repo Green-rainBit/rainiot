@@ -21,7 +21,7 @@ func Register(serverCtx *svc.ServiceContext) *asynq.ServeMux {
 	mux := asynq.NewServeMux()
 
 	//scheduler job
-	mux.Handle(cache.GetCacheWsServerName(""), logic.NewWsBalancedHandler(serverCtx))
+	mux.Handle(cache.GetWsBalancedPublishCache(serverCtx.Config.Name), logic.NewWsBalancedHandler(serverCtx))
 
 	return mux
 }

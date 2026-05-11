@@ -6,6 +6,7 @@ package logic
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
@@ -28,8 +29,18 @@ func NewIotsyncLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotsyncLo
 }
 
 func (l *iotsyncLogic) Iotsync() {
-	err := l.svcCtx.Redis.HSet(l.ctx, cache.GetCacheWsConn(), l.svcCtx.Config.Name, l.svcCtx.Connection.GetNumber()).Err()
+	key := cache.CacheWsServerNameLock(l.svcCtx.Config.Name)
+	value := l.svcCtx.Connection.GetNumber()
+	expiration := time.Duration(5) * time.Second
+
+	err := cache.Lock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
 	if err != nil {
-		l.Logger.Error(fmt.Sprintf("hset error: %v", err))
+		return
+	}
+	defer cache.Unlock(l.svcCtx.Redis, l.ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
+
+	err = l.svcCtx.Redis.SetXX(l.ctx, key, value, expiration).Err()
+	if err != nil {
+		l.Logger.Error(fmt.Sprintf("iotsyncLogic iotsync setxx error: %v", err))
 	}
 }
