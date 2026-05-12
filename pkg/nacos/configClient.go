@@ -11,7 +11,6 @@ import (
 	"syscall"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
@@ -34,6 +33,8 @@ func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, gro
 				constant.WithLogDir("/tmp/nacos/log"),
 				constant.WithCacheDir("/tmp/nacos/cache"),
 				constant.WithLogLevel("debug"),
+				constant.WithUsername(config.Username),
+				constant.WithPassword(config.Password),
 				constant.WithAccessKey(config.AccessKey),
 				constant.WithSecretKey(config.SecretKey),
 				constant.WithRegionId(config.RegionId),
@@ -56,7 +57,10 @@ func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, gro
 	return nil
 }
 
-func InitNacosRegisterInstance(config openconfig.NacosConfig, configClient config_client.IConfigClient) error {
+func InitNacosRegisterInstance(config openconfig.NacosConfig) error {
+	if config.Model == "local" || len(config.IpAddress) == 0 {
+		return nil
+	}
 	nacosConfigs := []constant.ServerConfig{}
 	for _, ipAddress := range config.IpAddress {
 		nacosConfigs = append(nacosConfigs, *constant.NewServerConfig(ipAddress, config.Port))
@@ -70,6 +74,8 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig, configClient confi
 				constant.WithLogDir("/tmp/nacos/log"),
 				constant.WithCacheDir("/tmp/nacos/cache"),
 				constant.WithLogLevel("debug"),
+				constant.WithUsername(config.Username),
+				constant.WithPassword(config.Password),
 				constant.WithAccessKey(config.AccessKey),
 				constant.WithSecretKey(config.SecretKey),
 				constant.WithRegionId(config.RegionId),
@@ -88,7 +94,7 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig, configClient confi
 	_, err = namingClient.RegisterInstance(vo.RegisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
-		ServiceName: serviceName,
+		ServiceName: config.DataId,
 		Weight:      10,
 		Enable:      true,
 		Healthy:     true,

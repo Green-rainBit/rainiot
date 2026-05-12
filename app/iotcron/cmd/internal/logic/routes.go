@@ -26,7 +26,7 @@ func (l *CronJob) Register() *cron.Cron {
 	c := cron.New()
 	// 添加定时任务
 	c.AddFunc("@every 5m", func() {
-		NewIotwsBalancedLogic(l.ctx, l.svcCtx).IotwsBalanced()
+		NewIotwsBalancedLogic(l.ctx, l.svcCtx).TryBalance("even")
 	})
 	c.AddFunc("@hourly", func() {
 		fmt.Println("每小时执行一次任务")

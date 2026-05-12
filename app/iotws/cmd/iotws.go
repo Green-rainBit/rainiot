@@ -18,7 +18,7 @@ import (
 )
 
 var configFile = flag.String("f", "etc/iotws-api.json", "the config file")
-var configNacosFile = flag.String("nacos", "etc/iotdevice-nacos.json", "the nacos config file")
+var configNacosFile = flag.String("nacos", "etc/iotws-nacos.json", "the nacos config file")
 
 func main() {
 	flag.Parse()

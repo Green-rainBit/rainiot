@@ -5,6 +5,7 @@ package svc
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"rainiot/app/iotdevice/cmd/internal/config"
@@ -27,6 +28,10 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	nacos.InitNacosConfig(nacosconfig, func(namespace, group, dataId, data string) {
 		fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
 	})
+	err := nacos.InitNacosRegisterInstance(nacosconfig)
+	if err != nil {
+		log.Fatalf("init nacos err: %v", err)
+	}
 	driverName := strings.TrimSpace(c.DriverName)
 	if driverName == "" {
 		driverName = "postgres"
