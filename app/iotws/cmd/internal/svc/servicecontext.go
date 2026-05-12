@@ -4,11 +4,12 @@
 package svc
 
 import (
-	"fmt"
 	"log"
+	"net/http"
 	"strings"
 
 	"rainiot/app/iotws/cmd/internal/config"
+	"rainiot/pkg/devicecli"
 	"rainiot/pkg/nacos"
 	"rainiot/pkg/openconfig"
 
@@ -19,6 +20,7 @@ type ServiceContext struct {
 	Config     config.Config
 	Redis      *redis.ClusterClient
 	Connection *connection
+	DeviceCli  func() (http.Client, error)
 }
 
 func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
@@ -26,17 +28,18 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	nacos.InitNacosConfig(nacosconfig, func(namespace, group, dataId, data string) {
-		fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
-	})
-
-	err := nacos.InitNacosRegisterInstance(nacosconfig, c.RestConf)
+	nacosCli, err := nacos.NewNacosClient(nacosconfig)
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	deviceCli := devicecli.NewDeviceCli(c.Mode, func() (string, uint64, error) {
+		return nacosCli.GetSeverCli(c.DeviceServer, nacosconfig.Group)
+	}, c.DviceHost, c.DevicePort)
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: NewConnection(c),
+		DeviceCli:  deviceCli,
 	}
 }

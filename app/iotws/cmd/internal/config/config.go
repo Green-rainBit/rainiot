@@ -14,6 +14,6 @@ type Config struct {
 	CacheRedis redis.RedisConf
 
 	DeviceServer string
-	DevicePort   int
+	DevicePort   uint64
 	DviceHost    string
 }

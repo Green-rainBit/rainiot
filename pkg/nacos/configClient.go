@@ -11,15 +11,21 @@ import (
 	"syscall"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
+	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"github.com/zeromicro/go-zero/rest"
 )
 
-func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, group, dataId, data string)) error {
-	if config.Model == "local" || len(config.IpAddress) == 0 {
-		return nil
+type nacosClient struct {
+	confCli   config_client.IConfigClient
+	namingCli naming_client.INamingClient
+}
+
+func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
+	if config.Model != "nacos" || len(config.IpAddress) == 0 {
+		return nil, nil
 	}
 	nacosConfigs := []constant.ServerConfig{}
 	for _, ipAddress := range config.IpAddress {
@@ -44,27 +50,7 @@ func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, gro
 		},
 	)
 	if err != nil {
-		return err
-	}
-	err = configClient.ListenConfig(vo.ConfigParam{
-		DataId:   config.DataId,
-		Group:    config.Group,
-		OnChange: onChange,
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
-	if config.Model == "local" || len(config.IpAddress) == 0 {
-		return nil
-	}
-	nacosConfigs := []constant.ServerConfig{}
-	for _, ipAddress := range config.IpAddress {
-		nacosConfigs = append(nacosConfigs, *constant.NewServerConfig(ipAddress, config.Port))
+		return nil, err
 	}
 	namingClient, err := clients.NewNamingClient(
 		vo.NacosClientParam{
@@ -85,14 +71,35 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) e
 		},
 	)
 	if err != nil {
+		return nil, err
+	}
+
+	return &nacosClient{
+		confCli:   configClient,
+		namingCli: namingClient,
+	}, nil
+
+}
+
+func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namespace, group, dataId, data string)) error {
+	err := l.confCli.ListenConfig(vo.ConfigParam{
+		DataId:   dataId,
+		Group:    group,
+		OnChange: onChange,
+	})
+	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
 	serviceName, ip, portStr := getRegistryParameters(c)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
 	}
-	_, err = namingClient.RegisterInstance(vo.RegisterInstanceParam{
+	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
 		ServiceName: config.DataId,
@@ -106,7 +113,7 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) e
 		return fmt.Errorf("failed to register service: %w", err)
 	}
 
-	go handleShutdown(namingClient, serviceName, ip, port)
+	go handleShutdown(l.namingCli, serviceName, ip, port)
 	return nil
 }
 
@@ -160,6 +167,19 @@ func getLocalIP() string {
 		}
 	}
 	return ""
+}
+
+func (l *nacosClient) GetSeverCli(serviceName, groupName string) (ip string, port uint64, e error) {
+
+	instance, err := l.namingCli.SelectOneHealthyInstance(vo.SelectOneHealthInstanceParam{
+		ServiceName: "demo.go",
+		GroupName:   "group-a",             // 默认值DEFAULT_GROUP
+		Clusters:    []string{"cluster-a"}, // 默认值DEFAULT
+	})
+	if err != nil {
+		return "", 0, nil
+	}
+	return instance.Ip, instance.Port, nil
 }
 
 func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip string, port uint64) {
