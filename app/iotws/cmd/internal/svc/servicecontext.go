@@ -30,7 +30,7 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
 	})
 
-	err := nacos.InitNacosRegisterInstance(nacosconfig)
+	err := nacos.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}

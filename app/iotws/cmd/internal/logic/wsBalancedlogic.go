@@ -31,12 +31,6 @@ func NewWsBalancedHandler(svcCtx *svc.ServiceContext) *wsBalancedHandler {
 // every one minute exec : if return err != nil , asynq will retry
 
 func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
-	// err := cache.BlockUntilLock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
-	// if err != nil {
-	// 	return err
-	// }
-	// defer cache.Unlock(l.svcCtx.Redis, ctx, cache.CacheWsServerNameLock(l.svcCtx.Config.Name))
-
 	pub := cache.WsBalancedPublish{}
 	err := json.Unmarshal(task.Payload(), &pub)
 	if err != nil {

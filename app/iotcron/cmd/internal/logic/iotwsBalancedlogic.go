@@ -54,7 +54,6 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 }
 
 func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws int) {
-
 	meanws := totalws / len(wsBalancedMap)
 	disconnectWsserver := map[string]int{}
 	receiveWsserver := map[string]int{}

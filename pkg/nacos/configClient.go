@@ -14,6 +14,7 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+	"github.com/zeromicro/go-zero/rest"
 )
 
 func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, group, dataId, data string)) error {
@@ -57,7 +58,7 @@ func InitNacosConfig(config openconfig.NacosConfig, onChange func(namespace, gro
 	return nil
 }
 
-func InitNacosRegisterInstance(config openconfig.NacosConfig) error {
+func InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
 	if config.Model == "local" || len(config.IpAddress) == 0 {
 		return nil
 	}
@@ -86,7 +87,7 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig) error {
 	if err != nil {
 		return err
 	}
-	serviceName, ip, portStr := getRegistryParameters()
+	serviceName, ip, portStr := getRegistryParameters(c)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
@@ -101,15 +102,18 @@ func InitNacosRegisterInstance(config openconfig.NacosConfig) error {
 		Ephemeral:   true,
 		Metadata:    map[string]string{"idc": "shanghai"},
 	})
+	if err != nil {
+		return fmt.Errorf("failed to register service: %w", err)
+	}
 
 	go handleShutdown(namingClient, serviceName, ip, port)
 	return nil
 }
 
-func getRegistryParameters() (serviceName, ip, portStr string) {
+func getRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
 	serviceName = os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
-		serviceName = "go-demo-service"
+		serviceName = c.Name
 	}
 
 	ip = os.Getenv("SERVICE_IP")
@@ -127,7 +131,7 @@ func getRegistryParameters() (serviceName, ip, portStr string) {
 
 	portStr = os.Getenv("SERVICE_PORT")
 	if portStr == "" {
-		portStr = "8080"
+		portStr = strconv.Itoa(c.Port)
 	}
 	return
 }
@@ -162,7 +166,7 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	<-c
-	fmt.Println("\n[INFO] Shutdown signal received, deregistering...")
+	log.Println("\n[INFO] Shutdown signal received, deregistering...")
 	_, err := namingClient.DeregisterInstance(vo.DeregisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
@@ -172,7 +176,7 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	if err != nil {
 		log.Printf("[ERROR] Deregister failed: %v\n", err)
 	} else {
-		fmt.Println("[INFO] Deregistered successfully.")
+		log.Println("[INFO] Deregistered successfully.")
 	}
 	os.Exit(0)
 }

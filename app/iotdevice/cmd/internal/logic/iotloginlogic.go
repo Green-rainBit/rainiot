@@ -29,6 +29,7 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 
 func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
 	if req.Sn == "" {
+		l.Logger.Errorf("device sn cannot be empty")
 		return nil, errors.New("device sn cannot be empty")
 	}
 	exists, err := l.svcCtx.Redis.Exists(l.ctx, "conn:"+req.Sn).Result()
@@ -36,6 +37,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		return nil, err
 	}
 	if exists == 1 {
+		l.Logger.Errorf("device already logged in")
 		return nil, errors.New("device already logged in")
 	}
 
@@ -49,6 +51,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		return nil, err
 	}
 	if !ok {
+		l.Logger.Errorf("device not found")
 		return nil, errors.New("device not found")
 	}
 	err = l.svcCtx.Redis.Set(l.ctx, req.Sn, "1", 0).Err()

@@ -10,6 +10,7 @@ import (
 	"rainiot/pkg/openconfig"
 
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 var configFile = flag.String("f", "etc/iotcron.json", "the config file")
@@ -21,6 +22,8 @@ func main() {
 
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
+	logx.MustSetup(c.Log)
+	defer logx.Close()
 
 	var nacosconfig openconfig.NacosConfig
 	conf.MustLoad(*configNacosFile, &nacosconfig)
