@@ -8,36 +8,38 @@ import (
 	"errors"
 
 	"rainiot/app/iotws/cmd/internal/svc"
+	"rainiot/app/iotws/cmd/internal/types"
 
 	"github.com/lxzan/gws"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-type IotwsNoticeLogic struct {
+type IotNoticeLogic struct {
 	logx.Logger
 	ctx    context.Context
 	svcCtx *svc.ServiceContext
 }
 
-func NewIotwsNoticeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotwsLogic {
-	return &IotwsLogic{
+func NewIotNoticeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotNoticeLogic {
+	return &IotNoticeLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
 	}
 }
 
-func (l *IotwsNoticeLogic) IotNotice(sn string, message []byte) (err error) {
-	conn, ok := l.svcCtx.Connection.GetconnBySn(sn)
+func (l *IotNoticeLogic) IotNotice(req *types.Ntice) error {
+	conn, ok := l.svcCtx.Connection.GetconnBySn(req.Id)
 	if !ok {
 		return errors.New("设备未连接")
 	}
 	switch co := conn.(type) {
 	case *gws.Conn:
-		return co.WriteMessage(gws.OpcodeText, message)
+		return co.WriteMessage(gws.OpcodeText, req.Data)
 	default:
 		// return message, conn.(*gws.Conn).WriteMessage(gws.OpcodeText, message)
 	}
 	return nil
 
+	return nil
 }

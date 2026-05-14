@@ -19,6 +19,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/connect",
 				Handler: IotwsHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/notice",
+				Handler: IotNoticeHandler(serverCtx),
+			},
 		},
 	)
 }

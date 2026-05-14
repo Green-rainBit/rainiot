@@ -1,27 +1,28 @@
-package devicecli
+package wscli
 
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
 )
 
-type DeviceCli interface {
+type WsCli interface {
 	Push(ctx context.Context, event string, message []byte) (*http.Response, error)
 	Pull(ctx context.Context) (message []byte, err error)
 }
 
-type deviceCli struct {
+type wsCli struct {
 	http.Client
 	u func() (*url.URL, error)
 }
 
-func NewDeviceCli(model string, fn func() (string, uint64, error), dviceHost string, devicePort uint64) DeviceCli {
+func NewWsCli(model string, fn func() (string, uint64, error), dviceHost string, devicePort uint64) *wsCli {
 
-	deviceCli := &deviceCli{
+	wsCli := &wsCli{
 		Client: http.Client{
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
@@ -31,31 +32,21 @@ func NewDeviceCli(model string, fn func() (string, uint64, error), dviceHost str
 		},
 		u: func() (*url.URL, error) {
 			ip, port := "", uint64(0)
-			var err error
-			if model == "nacos" {
-				ip, port, err = fn()
-				if err != nil {
-					return nil, err
-				}
-			}
-			if err != nil {
-				return nil, err
-			}
-			if ip == "" && port == 0 {
-				ip, port = dviceHost, devicePort
-			}
-
 			return &url.URL{
 				Scheme: "http",
 				Host:   ip + ":" + strconv.FormatUint(port, 10),
-				Path:   "/device/connect",
+				Path:   "/notice",
 			}, nil
 		},
 	}
-	return deviceCli
+	return wsCli
 }
 
-func (d *deviceCli) Push(ctx context.Context, event string, message []byte) (*http.Response, error) {
+func (d *wsCli) Push(ctx context.Context, event string, req Request) (*http.Response, error) {
+	jsonBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
 	switch event {
 	case "queue":
 		// todo
@@ -65,11 +56,11 @@ func (d *deviceCli) Push(ctx context.Context, event string, message []byte) (*ht
 		if err != nil {
 			return nil, err
 		}
-		return d.Post(deviceUrl.String(), "application/json", bytes.NewBuffer(message))
+		return d.Post(deviceUrl.String(), "application/json", bytes.NewBuffer(jsonBytes))
 	}
 	return nil, nil
 }
-func (d *deviceCli) Pull(ctx context.Context) (message []byte, err error) {
+func (d *wsCli) Pull(ctx context.Context) (message []byte, err error) {
 
 	return nil, nil
 }

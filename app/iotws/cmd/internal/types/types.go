@@ -3,6 +3,12 @@
 
 package types
 
+import "rainiot/pkg/wscli"
+
+type Ntice struct {
+	wscli.Request
+}
+
 type Request struct {
 	Name string `path:"name,options=you|me"`
 }

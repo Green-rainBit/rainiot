@@ -5,12 +5,24 @@ type Request {
 }
 
 type Response {
-	Message string `json:"message"`
+	Cmd  string `json:"cmd"`
+	Data string `json:"data"`
+}
+
+type Ntice {
+	Id   string `json:"id"`
+	Data string `json:"data"`
+}
+
+type WsBalanced {
+	Targeted string `json:"targeted"`
 }
 
 service iotws-api {
 	@handler IotwsHandler
 	get /connect (Request) returns (Response)
-	post /notice (Request) returns (Response)
+
+	@handler IotNoticeHandler
+	post /notice (Ntice)
 }
 
