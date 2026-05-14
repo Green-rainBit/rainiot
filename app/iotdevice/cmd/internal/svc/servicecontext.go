@@ -4,7 +4,7 @@
 package svc
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"strings"
 
@@ -25,19 +25,12 @@ type ServiceContext struct {
 }
 
 func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
-	// nacos.InitNacosConfig(nacosconfig, func(namespace, group, dataId, data string) {
-	// 	fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
-	// })
-	// err := nacos.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-	// if err != nil {
-	// 	log.Fatalf("init nacos err: %v", err)
-	// }
 	nacosCli, err := nacos.NewNacosClient(nacosconfig)
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
 	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
-		fmt.Println("group:" + group + ", dataId:" + dataId + ", data:" + data)
+		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 	

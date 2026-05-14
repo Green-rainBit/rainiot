@@ -14,6 +14,7 @@ func RegisterCron(cron *cron.Cron, serverCtx *svc.ServiceContext) {
 	spec := "*/5 * * * * *" // 每隔5s执行一次，cron格式（秒，分，时，天，月，周）
 	// 添加一个任务
 	cron.AddFunc(spec, logic.NewIotsyncLogic(context.Background(), serverCtx).Iotsync)
+	cron.AddFunc(spec, logic.NewIotsyncLogic(context.Background(), serverCtx).Iotsync)
 }
 
 func Register(serverCtx *svc.ServiceContext) *asynq.ServeMux {

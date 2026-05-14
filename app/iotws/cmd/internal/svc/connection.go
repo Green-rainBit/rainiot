@@ -3,8 +3,6 @@ package svc
 import (
 	"sync"
 	"sync/atomic"
-
-	"rainiot/app/iotws/cmd/internal/config"
 )
 
 type connection struct {
@@ -12,7 +10,7 @@ type connection struct {
 	count    int64 // 原子计数器
 }
 
-func NewConnection(c config.Config) *connection {
+func NewConnection() *connection {
 	return &connection{
 		soketMap: sync.Map{},
 		count:    0, // 原子计数器
@@ -50,4 +48,8 @@ func (c *connection) GetConnByCount(count int64) ([]any, bool) {
 		return true
 	})
 	return conns, true
+}
+
+func (c *connection) Range(f func(key, value any) bool) {
+	c.soketMap.Range(f)
 }

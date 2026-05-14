@@ -10,6 +10,7 @@ type Response {
 
 service iotws-api {
 	@handler IotwsHandler
-	get /from/:name (Request) returns (Response)
+	get /connect (Request) returns (Response)
+	post /notice (Request) returns (Response)
 }
 

@@ -3,10 +3,10 @@ package nacos
 import (
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"os/signal"
 	"rainiot/pkg/openconfig"
+	"rainiot/pkg/util"
 	"strconv"
 	"syscall"
 
@@ -31,44 +31,31 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 	for _, ipAddress := range config.IpAddress {
 		nacosConfigs = append(nacosConfigs, *constant.NewServerConfig(ipAddress, config.Port))
 	}
+	nacosClientParam := vo.NacosClientParam{
+		ClientConfig: constant.NewClientConfig(
+			constant.WithNamespaceId(config.NamespaceId), //当namespace是public时，此处填空字符串。
+			constant.WithTimeoutMs(5000),
+			constant.WithNotLoadCacheAtStart(true),
+			constant.WithLogDir("tmp/nacos/log"),
+			constant.WithCacheDir("tmp/nacos/cache"),
+			constant.WithLogLevel("debug"),
+			constant.WithUsername(config.Username),
+			constant.WithPassword(config.Password),
+			constant.WithAccessKey(config.AccessKey),
+			constant.WithSecretKey(config.SecretKey),
+			constant.WithRegionId(config.RegionId),
+		),
+		ServerConfigs: nacosConfigs,
+	}
+
 	configClient, err := clients.NewConfigClient(
-		vo.NacosClientParam{
-			ClientConfig: constant.NewClientConfig(
-				constant.WithNamespaceId(config.NamespaceId), //当namespace是public时，此处填空字符串。
-				constant.WithTimeoutMs(5000),
-				constant.WithNotLoadCacheAtStart(true),
-				constant.WithLogDir("/tmp/nacos/log"),
-				constant.WithCacheDir("/tmp/nacos/cache"),
-				constant.WithLogLevel("debug"),
-				constant.WithUsername(config.Username),
-				constant.WithPassword(config.Password),
-				constant.WithAccessKey(config.AccessKey),
-				constant.WithSecretKey(config.SecretKey),
-				constant.WithRegionId(config.RegionId),
-			),
-			ServerConfigs: nacosConfigs,
-		},
+		nacosClientParam,
 	)
 	if err != nil {
 		return nil, err
 	}
 	namingClient, err := clients.NewNamingClient(
-		vo.NacosClientParam{
-			ClientConfig: constant.NewClientConfig(
-				constant.WithNamespaceId(config.NamespaceId), //当namespace是public时，此处填空字符串。
-				constant.WithTimeoutMs(5000),
-				constant.WithNotLoadCacheAtStart(true),
-				constant.WithLogDir("/tmp/nacos/log"),
-				constant.WithCacheDir("/tmp/nacos/cache"),
-				constant.WithLogLevel("debug"),
-				constant.WithUsername(config.Username),
-				constant.WithPassword(config.Password),
-				constant.WithAccessKey(config.AccessKey),
-				constant.WithSecretKey(config.SecretKey),
-				constant.WithRegionId(config.RegionId),
-			),
-			ServerConfigs: nacosConfigs,
-		},
+		nacosClientParam,
 	)
 	if err != nil {
 		return nil, err
@@ -94,7 +81,7 @@ func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namesp
 }
 
 func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
-	serviceName, ip, portStr := getRegistryParameters(c)
+	serviceName, ip, portStr := util.GetRegistryParameters(c)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
@@ -117,63 +104,11 @@ func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c
 	return nil
 }
 
-func getRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
-	serviceName = os.Getenv("SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = c.Name
-	}
-
-	ip = os.Getenv("SERVICE_IP")
-	if ip == "" {
-		ip = getLocalIP()
-		if ip == "" {
-			ip = "127.0.0.1"
-			log.Println("[WARN] Failed to detect local IP, fallback to 127.0.0.1")
-		} else {
-			log.Printf("[INFO] Auto-detected local IP: %s", ip)
-		}
-	} else {
-		log.Printf("[INFO] Using SERVICE_IP from env: %s", ip)
-	}
-
-	portStr = os.Getenv("SERVICE_PORT")
-	if portStr == "" {
-		portStr = strconv.Itoa(c.Port)
-	}
-	return
-}
-
-func getLocalIP() string {
-	// 方法1：通过一个外部地址获取本机出口 IP
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err == nil {
-		defer conn.Close()
-		localAddr := conn.LocalAddr().(*net.UDPAddr)
-		ip := localAddr.IP.String()
-		if ip != "" && ip != "::1" && !net.IP.IsLoopback(localAddr.IP) {
-			return ip
-		}
-	}
-
-	// 方法2：遍历网卡
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-			// 过滤 docker 等虚拟网卡可选择增加判断，这里简化，取第一个有效 IPv4
-			return ipnet.IP.String()
-		}
-	}
-	return ""
-}
-
 func (l *nacosClient) GetSeverCli(serviceName, groupName string) (ip string, port uint64, e error) {
 
 	instance, err := l.namingCli.SelectOneHealthyInstance(vo.SelectOneHealthInstanceParam{
-		ServiceName: "demo.go",
-		GroupName:   "group-a",             // 默认值DEFAULT_GROUP
+		ServiceName: serviceName,
+		GroupName:   groupName,             // 默认值DEFAULT_GROUP
 		Clusters:    []string{"cluster-a"}, // 默认值DEFAULT
 	})
 	if err != nil {

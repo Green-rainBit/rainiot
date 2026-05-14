@@ -4,8 +4,8 @@
 package svc
 
 import (
+	"encoding/json"
 	"log"
-	"net/http"
 	"strings"
 
 	"rainiot/app/iotws/cmd/internal/config"
@@ -20,7 +20,7 @@ type ServiceContext struct {
 	Config     config.Config
 	Redis      *redis.ClusterClient
 	Connection *connection
-	DeviceCli  func() (http.Client, error)
+	DeviceCli  devicecli.DeviceCli
 }
 
 func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
@@ -32,6 +32,11 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
+		json.Unmarshal([]byte(data), &c)
+	})
+	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
+
 	deviceCli := devicecli.NewDeviceCli(c.Mode, func() (string, uint64, error) {
 		return nacosCli.GetSeverCli(c.DeviceServer, nacosconfig.Group)
 	}, c.DviceHost, c.DevicePort)
@@ -39,7 +44,7 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
-		Connection: NewConnection(c),
+		Connection: NewConnection(),
 		DeviceCli:  deviceCli,
 	}
 }

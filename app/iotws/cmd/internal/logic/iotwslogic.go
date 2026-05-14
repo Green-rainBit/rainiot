@@ -4,7 +4,6 @@
 package logic
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -30,9 +29,12 @@ func NewIotwsLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotwsLogic 
 }
 
 func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
-	resp, err := http.Post(l.svcCtx.Config.DeviceServer, "application/json", bytes.NewReader(message))
+	resp, err := l.svcCtx.DeviceCli.Push(l.ctx, "http", message)
 	if err != nil {
 		return nil, err
+	}
+	if resp == nil {
+		return nil, nil
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
