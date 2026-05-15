@@ -1,8 +1,10 @@
 syntax = "v1"
 
 type Request {
-	cmd  string `json:"cmd"`
-	data any    `json:"data"`
+	cmd         string `json:"cmd"`
+	Sn          string `json:"sn"`
+	Data        []byte `json:"data,optional"`
+	ServiceName string `header:"ServiceName"` // 从请求头中提取 ServiceName
 }
 
 type Response {
@@ -13,3 +15,4 @@ service iotdevice-api {
 	@handler IotdeviceHandler
 	post /device/connect (Request) returns (Response)
 }
+

@@ -10,7 +10,7 @@ type Ntice struct {
 }
 
 type Request struct {
-	Name string `path:"name,options=you|me"`
+	Sn string `json:"sn"`
 }
 
 type Response struct {

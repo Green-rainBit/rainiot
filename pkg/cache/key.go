@@ -9,6 +9,8 @@ const (
 	cacheWsConn           = "iot:ws:conn:"
 	cacheWsBalancedLastat = "iot:ws:balance:lastat"
 
+	ConnTime = time.Minute * 6
+
 	LockTimne = 10 * time.Second
 )
 

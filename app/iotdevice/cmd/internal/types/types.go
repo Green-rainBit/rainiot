@@ -3,19 +3,13 @@
 
 package types
 
-import "encoding/json"
-
 type Request struct {
-	Cmd  string          `json:"cmd"`
-	Sn   string          `json:"sn"`
-	Data json.RawMessage `json:"data"`
+	Cmd         string         `json:"cmd"`
+	Sn          string         `json:"sn"`
+	Data        map[string]any `json:"data,optional"`
+	ServiceName string         `header:"ServiceName"` // 从请求头中提取 ServiceName
 }
 
 type Response struct {
 	Message string `json:"message"`
-}
-
-type DeviceLogin struct {
-	// Id int64  `json:"id"`
-	Sn string `json:"sn"`
 }

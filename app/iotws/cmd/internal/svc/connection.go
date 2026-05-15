@@ -17,19 +17,19 @@ func NewConnection() *connection {
 	}
 }
 
-func (c *connection) Storage(sn string, conn any) error {
-	c.soketMap.Store(sn, conn)
+func (c *connection) Storage(connId string, conn any) error {
+	c.soketMap.Store(connId, conn)
 	atomic.AddInt64(&c.count, 1)
 	return nil
 }
 
-func (c *connection) Del(sn string) {
+func (c *connection) Del(connId string) {
 	atomic.AddInt64(&c.count, -1)
-	c.soketMap.Delete(sn)
+	c.soketMap.Delete(connId)
 }
 
-func (c *connection) GetconnBySn(sn string) (any, bool) {
-	return c.soketMap.Load(sn)
+func (c *connection) GetconnByConnId(connId string) (any, bool) {
+	return c.soketMap.Load(connId)
 }
 
 func (c *connection) GetNumber() int64 {

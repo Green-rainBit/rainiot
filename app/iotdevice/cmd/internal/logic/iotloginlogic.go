@@ -49,7 +49,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		l.Logger.Errorf("device not found")
 		return nil, errors.New("device not found")
 	}
-	err = l.svcCtx.Redis.Set(l.ctx, cache.GetCacheConn(req.Sn), "1", 0).Err()
+	err = l.svcCtx.Redis.Set(l.ctx, cache.GetCacheConn(req.Sn), req.ServiceName, cache.ConnTime).Err()
 	if err != nil {
 		return nil, err
 	}

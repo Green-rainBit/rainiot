@@ -15,13 +15,15 @@ type DeviceCli interface {
 }
 
 type deviceCli struct {
+	serviceName string
 	http.Client
 	u func() (*url.URL, error)
 }
 
-func NewDeviceCli(model string, fn func() (string, uint64, error), dviceHost string, devicePort uint64) DeviceCli {
+func NewDeviceCli(model, serviceName string, fn func() (string, uint64, error), dviceHost string, devicePort uint64) DeviceCli {
 
 	deviceCli := &deviceCli{
+		serviceName: serviceName,
 		Client: http.Client{
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
@@ -65,7 +67,10 @@ func (d *deviceCli) Push(ctx context.Context, event string, message []byte) (*ht
 		if err != nil {
 			return nil, err
 		}
-		return d.Post(deviceUrl.String(), "application/json", bytes.NewBuffer(message))
+		req, err := http.NewRequest(http.MethodPost, deviceUrl.String(), bytes.NewBuffer(message))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("ServiceName", d.serviceName)
+		return d.Do(req)
 	}
 	return nil, nil
 }

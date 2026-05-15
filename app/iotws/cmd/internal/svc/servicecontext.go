@@ -12,6 +12,7 @@ import (
 	"rainiot/pkg/devicecli"
 	"rainiot/pkg/nacos"
 	"rainiot/pkg/openconfig"
+	"rainiot/pkg/util"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -32,12 +33,13 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 
-	deviceCli := devicecli.NewDeviceCli(c.Mode, func() (string, uint64, error) {
+	deviceCli := devicecli.NewDeviceCli(c.Mode, serviceName, func() (string, uint64, error) {
 		return nacosCli.GetSeverCli(c.DeviceServer, nacosconfig.Group)
 	}, c.DviceHost, c.DevicePort)
 

@@ -1,9 +1,10 @@
 {
-  "Name": "iotws-api",
+  "Name": "iotcron",
   "Host": "0.0.0.0",
-  "Port": 8888,
-  "CacheRedis": {
-    "type": "cluster",
-    "Host": "127.0.0.1"
-  }
+  "Port": 8848,
+  "username": "",
+  "password": "",
+  "namespaceId": "",
+  "dataId": "",
+  "group": ""
 }
