@@ -70,6 +70,7 @@ func (d *deviceCli) Push(ctx context.Context, event string, message []byte) (*ht
 		req, err := http.NewRequest(http.MethodPost, deviceUrl.String(), bytes.NewBuffer(message))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("ServiceName", d.serviceName)
+		req.Header.Set("CoonId", d.serviceName)
 		return d.Do(req)
 	}
 	return nil, nil

@@ -4,11 +4,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/handler"
+	"rainiot/app/iotws/cmd/internal/logic"
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/openconfig"
 
@@ -33,6 +35,10 @@ func main() {
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c, nacosconfig)
+
+	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli)
+	ctx.WireWsFn(l.Iotws)
+
 	handler.RegisterHandlers(server, ctx)
 
 	cron := cron.New(cron.WithSeconds())

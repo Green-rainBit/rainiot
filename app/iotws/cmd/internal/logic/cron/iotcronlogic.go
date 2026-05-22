@@ -29,7 +29,7 @@ func NewIotsyncLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotsyncLo
 }
 
 func (l *iotsyncLogic) Iotsync() {
-	key := cache.CacheWsServerNameLock(l.svcCtx.Config.Name)
+	key := cache.GetWsBalancedPublishCache(l.svcCtx.Config.Name)
 	value := l.svcCtx.Connection.GetNumber()
 	expiration := time.Duration(5) * time.Second
 	err := l.svcCtx.Redis.SetXX(l.ctx, key, value, expiration).Err()

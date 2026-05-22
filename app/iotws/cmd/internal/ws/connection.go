@@ -1,19 +1,28 @@
-package svc
+package ws
 
 import (
 	"sync"
 	"sync/atomic"
 )
 
-type connection struct {
-	soketMap sync.Map
-	count    int64 // 原子计数器
+type Connection interface {
+	Storage(connId string, conn any) error
+	Del(connId string)
+	GetconnByConnId(connId string) (any, bool)
+	GetNumber() int64
+	GetConnByCount(count int64) ([]any, bool)
+	Range(f func(key, value any) bool)
 }
 
-func NewConnection() *connection {
+type connection struct {
+	soketMap sync.Map
+	count    int64
+}
+
+func NewConnection() Connection {
 	return &connection{
 		soketMap: sync.Map{},
-		count:    0, // 原子计数器
+		count:    0,
 	}
 }
 

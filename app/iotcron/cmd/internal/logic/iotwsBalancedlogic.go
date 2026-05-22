@@ -110,6 +110,5 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 		}
 		l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), pub)
 	}
-	return
 
 }
