@@ -1,2 +1,6 @@
-*.yml
 /.vscode
+/.goctl
+/.idea
+
+.mcp.json
+.claude/settings.json

@@ -1,0 +1,12 @@
+{
+    "model": "local",
+    "ipAddress": [
+        ""
+    ],
+    "port": 8848,
+    "username": "",
+    "password": "",
+    "namespaceId": "",
+    "dataId": "",
+    "group": ""
+}

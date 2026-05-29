@@ -1,0 +1,10 @@
+{
+  "Name": "iotcron",
+  "Host": "0.0.0.0",
+  "Port": 8848,
+  "username": "",
+  "password": "",
+  "namespaceId": "",
+  "dataId": "",
+  "group": ""
+}

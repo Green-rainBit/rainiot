@@ -1,0 +1,11 @@
+{
+  "Name": "iotcron",
+  "Log": {
+    "Mode": "file",
+    "Path": "logs/iotcron"
+  },
+  "CacheRedis": {
+    "type": "cluster",
+    "Host": "127.0.0.1"
+  }
+}

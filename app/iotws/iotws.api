@@ -1,0 +1,28 @@
+syntax = "v1"
+
+type Request {
+	Name string `path:"name,options=you|me"`
+}
+
+type Response {
+	Cmd  string `json:"cmd"`
+	Data string `json:"data"`
+}
+
+type Ntice {
+	Id   string `json:"id"`
+	Data string `json:"data"`
+}
+
+type WsBalanced {
+	Targeted string `json:"targeted"`
+}
+
+service iotws-api {
+	@handler IotwsHandler
+	get /connect (Request) returns (Response)
+
+	@handler IotNoticeHandler
+	post /notice (Ntice)
+}
+
