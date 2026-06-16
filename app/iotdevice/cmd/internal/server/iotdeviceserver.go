@@ -7,6 +7,7 @@ package server
 import (
 	"context"
 
+	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/pkg/devicecli/pb"
 )
@@ -24,14 +25,12 @@ func NewIotdeviceServer(svcCtx *svc.ServiceContext) *IotdeviceServer {
 
 // 定义一个 DeviceConnect 一元 rpc 方法，请求体和响应体必填。
 func (s *IotdeviceServer) DeviceConnect(ctx context.Context, in *pb.DeviceConnectReq) (*pb.DeviceConnectResp, error) {
-	switch in.GetCmd() {
-	case "login":
-		return &pb.DeviceConnectResp{
-			Message: "success",
-		}, nil
-	default:
-		return &pb.DeviceConnectResp{
-			Message: "success",
-		}, nil
+	l := logic.NewDeviceConnectLogic(ctx, s.svcCtx)
+	resp, err := l.DeviceConnect(in).Iotdevice(in)
+	if err != nil {
+		return nil, err
 	}
+	return &pb.DeviceConnectResp{
+		Message: resp.Message,
+	}, nil
 }

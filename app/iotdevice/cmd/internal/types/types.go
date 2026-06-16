@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 type IotdeviceReq interface {
 	Descriptor() ([]byte, []int)
 	GetCmd() string
-	GetData() string
+	GetData() *structpb.Struct
 	GetSn() string
 	GetServiceName() string
 	ProtoMessage()
@@ -36,8 +37,16 @@ func (m *Request) GetCmd() string {
 	return m.Cmd
 }
 
-func (m *Request) GetData() string {
-	return string(m.Data)
+func (m *Request) GetData() *structpb.Struct {
+	return &structpb.Struct{
+		Fields: map[string]*structpb.Value{
+			"data": {
+				Kind: &structpb.Value_StringValue{
+					StringValue: string(m.Data),
+				},
+			},
+		},
+	}
 }
 
 func (m *Request) GetSn() string {

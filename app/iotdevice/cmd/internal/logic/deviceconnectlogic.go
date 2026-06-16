@@ -25,8 +25,11 @@ func NewDeviceConnectLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Dev
 }
 
 // 定义一个 DeviceConnect 一元 rpc 方法，请求体和响应体必填。
-func (l *DeviceConnectLogic) DeviceConnect(in *pb.DeviceConnectReq) (*pb.DeviceConnectResp, error) {
-	// todo: add your logic here and delete this line
-
-	return &pb.DeviceConnectResp{}, nil
+func (l *DeviceConnectLogic) DeviceConnect(in *pb.DeviceConnectReq) IotdeviceLogic {
+	switch in.GetCmd() {
+	case "login":
+		return newIotLoginLogic(l.ctx, l.svcCtx)
+	default:
+		return newIotErrorLogic(l.ctx, l.svcCtx)
+	}
 }
