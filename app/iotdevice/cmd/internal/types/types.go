@@ -3,11 +3,64 @@
 
 package types
 
+import (
+	"encoding/json"
+
+	"google.golang.org/protobuf/reflect/protoreflect"
+)
+
+type IotdeviceReq interface {
+	Descriptor() ([]byte, []int)
+	GetCmd() string
+	GetData() string
+	GetSn() string
+	GetServiceName() string
+	ProtoMessage()
+	ProtoReflect() protoreflect.Message
+	Reset()
+	String() string
+}
+
 type Request struct {
-	Cmd         string         `json:"cmd"`
-	Sn          string         `json:"sn"`
-	Data        map[string]any `json:"data,optional"`
-	ServiceName string         `header:"ServiceName"` // 从请求头中提取 ServiceName
+	Cmd         string          `json:"cmd"`
+	Sn          string          `json:"sn"`
+	Data        json.RawMessage `json:"data"`
+	ServiceName string          `header:"ServiceName"` // 从请求头中提取 ServiceName
+}
+
+func (m *Request) Descriptor() ([]byte, []int) {
+	return []byte(nil), []int{}
+}
+
+func (m *Request) GetCmd() string {
+	return m.Cmd
+}
+
+func (m *Request) GetData() string {
+	return string(m.Data)
+}
+
+func (m *Request) GetSn() string {
+	return m.Sn
+}
+
+func (m *Request) ProtoMessage() {
+	return
+}
+
+func (m *Request) ProtoReflect() protoreflect.Message {
+	return nil
+}
+
+func (m *Request) GetServiceName() string {
+	return m.ServiceName
+}
+
+func (m *Request) String() string {
+	return ""
+}
+
+func (m *Request) Reset() {
 }
 
 type Response struct {

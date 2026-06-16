@@ -36,7 +36,7 @@ func main() {
 
 	ctx := svc.NewServiceContext(c, nacosconfig)
 
-	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli)
+	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli, ctx)
 	ctx.WireWsFn(l.Iotws)
 
 	handler.RegisterHandlers(server, ctx)

@@ -48,6 +48,12 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	}, c.DviceHost, c.DevicePort)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
+	// conn, err := zrpc.NewClient(zrpc.RpcClientConf{
+	// 	Endpoints: []string{"localhost:9090"},
+	// })
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,

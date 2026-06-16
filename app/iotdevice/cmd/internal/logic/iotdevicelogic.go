@@ -11,7 +11,7 @@ import (
 )
 
 type IotdeviceLogic interface {
-	Iotdevice(req *types.Request) (resp *types.Response, err error)
+	Iotdevice(req types.IotdeviceReq) (resp *types.Response, err error)
 }
 
 func NewIotdeviceLogic(ctx context.Context, cmd string, svcCtx *svc.ServiceContext) IotdeviceLogic {
