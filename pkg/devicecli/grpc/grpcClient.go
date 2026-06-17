@@ -1,0 +1,39 @@
+package grpc
+
+import (
+	"context"
+	"rainiot/pkg/devicecli/pb"
+
+	"github.com/zeromicro/go-zero/zrpc"
+	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
+	"google.golang.org/protobuf/encoding/protojson"
+)
+
+type deviceGrpcCli struct {
+	client      pb.IotdeviceClient
+	serviceName string
+}
+
+func NewDeviceCli(model, serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
+
+	conn := zrpc.MustNewClient(zrpcConf)
+	return &deviceGrpcCli{
+		client:      pb.NewIotdeviceClient(conn.Conn()),
+		serviceName: serviceName,
+	}
+}
+
+func (d *deviceGrpcCli) Push(ctx context.Context, event, conId string, message []byte) ([]byte, error) {
+	req := &pb.DeviceConnectReq{
+		ServiceName: d.serviceName,
+		ConId:       conId,
+	}
+	if err := protojson.Unmarshal(message, req); err != nil {
+		return nil, err
+	}
+	_, err := d.client.DeviceConnect(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return nil, nil
+}

@@ -17,6 +17,7 @@ import (
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
+	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
 type ServiceContext struct {
@@ -42,27 +43,23 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
+	nacosCli.SetGrpcConfig(&c.RpcClientConf)
+	// grpc.NewDeviceCli(c.RpcClientConf)
 
-	deviceCli := devicecli.NewDeviceCli(c.Mode, serviceName, func() (string, uint64, error) {
-		return nacosCli.GetSeverCli(c.DeviceServer, nacosconfig.Group)
-	}, c.DviceHost, c.DevicePort)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
-	// conn, err := zrpc.NewClient(zrpc.RpcClientConf{
-	// 	Endpoints: []string{"localhost:9090"},
-	// })
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  deviceCli,
-		gateway:    gateway,
+		// DeviceCli:  deviceCli,
+		gateway: gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
-			// Recovery:          gws.Recovery,                         // 开启异常恢复
+			Recovery: func(logger gws.Logger) {
+				logger.Error("panic:", recover())
+			}, // 开启异常恢复
 			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
 
 			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存

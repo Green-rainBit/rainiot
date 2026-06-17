@@ -16,9 +16,12 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
+	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
 type nacosClient struct {
+	config    openconfig.NacosConfig
 	confCli   config_client.IConfigClient
 	namingCli naming_client.INamingClient
 }
@@ -62,6 +65,7 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 	}
 
 	return &nacosClient{
+		config:    config,
 		confCli:   configClient,
 		namingCli: namingClient,
 	}, nil
@@ -135,3 +139,12 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	}
 	os.Exit(0)
 }
+
+func (l *nacosClient) SetGrpcConfig(rpcClientConf *zrpc.RpcClientConf) error {
+	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
+		return nil
+	}
+	rpcClientConf.Target = l.config.BuildConfigUrl()
+	return nil
+}
+

@@ -30,7 +30,7 @@ func NewIotwsLogic(ctx context.Context, deviceCli devicecli.DeviceCli, svc *svc.
 
 func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
 
-	resp, err := l.deviceCli.Push(l.ctx, "http", message)
+	resp, err := l.deviceCli.Push(l.ctx, "grpc", message)
 	if err != nil {
 		return nil, err
 	}

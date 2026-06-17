@@ -10,6 +10,7 @@ require (
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/zeromicro/go-zero v1.10.0
+	github.com/zeromicro/zero-contrib/zrpc/registry/nacos v0.0.0-20251020121907-c2e4c4911576
 	google.golang.org/grpc v1.67.3
 	google.golang.org/protobuf v1.36.11
 )
@@ -67,7 +68,7 @@ require (
 	github.com/grafana/pyroscope-go v1.2.7 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
-	github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect

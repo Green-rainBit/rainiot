@@ -6,14 +6,16 @@ package config
 import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/zrpc"
+	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
 type Config struct {
 	rest.RestConf
 
-	CacheRedis redis.RedisConf
-
-	DeviceServer string
-	DevicePort   uint64
-	DviceHost    string
+	RpcClientConf zrpc.RpcClientConf
+	CacheRedis    redis.RedisConf
+	DeviceServer  string
+	DevicePort    uint64
+	DviceHost     string
 }

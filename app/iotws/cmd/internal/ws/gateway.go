@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"runtime/debug"
 	"time"
 
 	"rainiot/pkg/cache"
@@ -19,6 +21,8 @@ const (
 	PingInterval = 5 * time.Second
 	PingWait     = 10 * time.Second
 )
+
+var serverError = []byte("server error")
 
 func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
 	return &Gateway{
@@ -100,6 +104,8 @@ func (c *Gateway) OnPong(socket *gws.Conn, payload []byte) {
 
 func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
+	defer c.recover("OnMessage", socket)
+
 	by, err := c.Fn(message.Bytes())
 	_, ok := socket.Session().Load("connId")
 	if !ok {
@@ -119,6 +125,12 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 
 }
 
+func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
+	if r := recover(); r != nil {
+		log.Printf("[Recover] %s panic: %v\n%s", ctx, r, debug.Stack())
+		socket.WriteMessage(gws.OpcodeText, serverError)
+	}
+}
 func (c *Gateway) extractSn(payload []byte) []byte {
 	key := []byte(`"sn":"`)
 	i := bytes.Index(payload, key)

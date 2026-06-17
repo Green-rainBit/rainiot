@@ -12,7 +12,7 @@ option go_package = "app/iotdevice/pb";
 // 定义请求体
 message DeviceConnectReq {
   string cmd = 1;
-  string sn = 2;
+  string conId = 2;
   google.protobuf.Struct data = 3;
   string serviceName = 4;
 }
