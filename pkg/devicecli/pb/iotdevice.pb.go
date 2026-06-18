@@ -30,9 +30,10 @@ const (
 type DeviceConnectReq struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cmd           string                 `protobuf:"bytes,1,opt,name=cmd,proto3" json:"cmd,omitempty"`
-	ConId         string                 `protobuf:"bytes,2,opt,name=conId,proto3" json:"conId,omitempty"`
-	Data          *structpb.Struct       `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	ServiceName   string                 `protobuf:"bytes,4,opt,name=serviceName,proto3" json:"serviceName,omitempty"`
+	Sn            string                 `protobuf:"bytes,2,opt,name=sn,proto3" json:"sn,omitempty"`
+	ConnId        string                 `protobuf:"bytes,3,opt,name=connId,proto3" json:"connId,omitempty"`
+	Data          *structpb.Struct       `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+	ServiceName   string                 `protobuf:"bytes,5,opt,name=serviceName,proto3" json:"serviceName,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -74,9 +75,16 @@ func (x *DeviceConnectReq) GetCmd() string {
 	return ""
 }
 
-func (x *DeviceConnectReq) GetConId() string {
+func (x *DeviceConnectReq) GetSn() string {
 	if x != nil {
-		return x.ConId
+		return x.Sn
+	}
+	return ""
+}
+
+func (x *DeviceConnectReq) GetConnId() string {
+	if x != nil {
+		return x.ConnId
 	}
 	return ""
 }
@@ -144,12 +152,13 @@ var File_app_iotdevice_iotdevice_proto protoreflect.FileDescriptor
 
 const file_app_iotdevice_iotdevice_proto_rawDesc = "" +
 	"\n" +
-	"\x1dapp/iotdevice/iotdevice.proto\x12\tiotdevice\x1a\x1cgoogle/protobuf/struct.proto\"\x89\x01\n" +
+	"\x1dapp/iotdevice/iotdevice.proto\x12\tiotdevice\x1a\x1cgoogle/protobuf/struct.proto\"\x9b\x01\n" +
 	"\x10DeviceConnectReq\x12\x10\n" +
-	"\x03cmd\x18\x01 \x01(\tR\x03cmd\x12\x14\n" +
-	"\x05conId\x18\x02 \x01(\tR\x05conId\x12+\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04data\x12 \n" +
-	"\vserviceName\x18\x04 \x01(\tR\vserviceName\"-\n" +
+	"\x03cmd\x18\x01 \x01(\tR\x03cmd\x12\x0e\n" +
+	"\x02sn\x18\x02 \x01(\tR\x02sn\x12\x16\n" +
+	"\x06connId\x18\x03 \x01(\tR\x06connId\x12+\n" +
+	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04data\x12 \n" +
+	"\vserviceName\x18\x05 \x01(\tR\vserviceName\"-\n" +
 	"\x11DeviceConnectResp\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage2W\n" +
 	"\tIotdevice\x12J\n" +

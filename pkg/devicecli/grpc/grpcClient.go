@@ -14,8 +14,7 @@ type deviceGrpcCli struct {
 	serviceName string
 }
 
-func NewDeviceCli(model, serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
-
+func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
 	conn := zrpc.MustNewClient(zrpcConf)
 	return &deviceGrpcCli{
 		client:      pb.NewIotdeviceClient(conn.Conn()),
@@ -23,10 +22,10 @@ func NewDeviceCli(model, serviceName string, zrpcConf zrpc.RpcClientConf) *devic
 	}
 }
 
-func (d *deviceGrpcCli) Push(ctx context.Context, event, conId string, message []byte) ([]byte, error) {
+func (d *deviceGrpcCli) Push(ctx context.Context, event, connId string, message []byte) ([]byte, error) {
 	req := &pb.DeviceConnectReq{
 		ServiceName: d.serviceName,
-		ConId:       conId,
+		ConnId:      connId,
 	}
 	if err := protojson.Unmarshal(message, req); err != nil {
 		return nil, err

@@ -3,24 +3,34 @@ package devicecli
 import (
 	"context"
 
+	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/devicecli/httpc"
+
+	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type DeviceCli interface {
-	Push(ctx context.Context, event string, message []byte) ([]byte, error)
+	Push(ctx context.Context, event, connId string, message []byte) ([]byte, error)
 	// Pull(ctx context.Context) (message []byte, err error)
 }
 
 type deviceCli struct {
-	http DeviceCli
+	model string
+	http  DeviceCli
+	zrpc  DeviceCli
 }
 
-func NewDeviceCli(model, serviceName string, fn func(serviceName string) []string) DeviceCli {
+func NewDeviceCli(model, serviceName string, fn func(serviceName string) []string, zrpcConf zrpc.RpcClientConf) DeviceCli {
 	return &deviceCli{
-		http: httpc.NewDeviceCli(model, serviceName, fn),
+		model: model,
+		http:  httpc.NewDeviceCli(serviceName, fn),
+		zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf),
 	}
 }
 
-func (d *deviceCli) Push(ctx context.Context, event string, message []byte) ([]byte, error) {
-	return d.http.Push(ctx, event, message)
+func (d *deviceCli) Push(ctx context.Context, event, connId string, message []byte) ([]byte, error) {
+	if d.model == "http" {
+		return d.zrpc.Push(ctx, event, connId, message)
+	}
+	return d.http.Push(ctx, event, connId, message)
 }

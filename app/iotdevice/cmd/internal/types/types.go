@@ -15,6 +15,7 @@ type IotdeviceReq interface {
 	GetCmd() string
 	GetData() *structpb.Struct
 	GetSn() string
+	GetConnId() string
 	GetServiceName() string
 	ProtoMessage()
 	ProtoReflect() protoreflect.Message
@@ -24,7 +25,7 @@ type IotdeviceReq interface {
 
 type Request struct {
 	Cmd         string          `json:"cmd"`
-	Sn          string          `json:"sn"`
+	ConnId      string          `json:"coonId"`
 	Data        json.RawMessage `json:"data"`
 	ServiceName string          `header:"ServiceName"` // 从请求头中提取 ServiceName
 }
@@ -50,7 +51,11 @@ func (m *Request) GetData() *structpb.Struct {
 }
 
 func (m *Request) GetSn() string {
-	return m.Sn
+	return m.ConnId
+}
+
+func (m *Request) GetConnId() string {
+	return m.ConnId
 }
 
 func (m *Request) ProtoMessage() {

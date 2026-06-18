@@ -36,8 +36,8 @@ func (lb *RoundRobin) Pick(instances []string) string {
 	return instances[idx]
 }
 
-func NewDeviceCli(model, serviceName string, fn func(serviceName string) []string) deviceHttpCli {
-	return deviceHttpCli{
+func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *deviceHttpCli {
+	return &deviceHttpCli{
 		fn: func() []string {
 			return fn(serviceName)
 		},
@@ -49,7 +49,7 @@ func NewDeviceCli(model, serviceName string, fn func(serviceName string) []strin
 	}
 }
 
-func (d deviceHttpCli) Push(ctx context.Context, event string, message []byte) ([]byte, error) {
+func (d *deviceHttpCli) Push(ctx context.Context, event, connId string, message []byte) ([]byte, error) {
 
 	resp, err := d.do(ctx, http.MethodPost, "/device/connect", bytes.NewBuffer(message), d.headers)
 	if err != nil {
