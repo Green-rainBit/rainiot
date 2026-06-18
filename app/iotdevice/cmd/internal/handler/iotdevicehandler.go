@@ -17,7 +17,7 @@ import (
 func IotdeviceHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.Request
-		if err := httpx.Parse(r, &req); err != nil {
+		if err := parseIotdeviceRequest(r, &req); err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 			return
 		}
@@ -33,5 +33,10 @@ func IotdeviceHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 }
 
 func parseIotdeviceRequest(r *http.Request, req *types.Request) error {
-	return json.NewDecoder(r.Body).Decode(req)
+	if err := json.NewDecoder(r.Body).Decode(req); err != nil {
+		return err
+	}
+	req.ConnId = r.Header.Get("ConnId")
+	req.ServiceName = r.Header.Get("ServiceName")
+	return nil
 }

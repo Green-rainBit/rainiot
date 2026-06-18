@@ -23,13 +23,12 @@ func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCl
 }
 
 func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
-	req := &pb.DeviceConnectReq{
-		ServiceName: d.serviceName,
-		ConnId:      connId,
-	}
+	req := &pb.DeviceConnectReq{}
 	if err := protojson.Unmarshal(message, req); err != nil {
 		return nil, err
 	}
+	req.ConnId = connId
+	req.ServiceName = d.serviceName
 	_, err := d.client.DeviceConnect(ctx, req)
 	if err != nil {
 		return nil, err

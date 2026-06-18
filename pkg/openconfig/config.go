@@ -24,19 +24,25 @@ type NacosConfig struct {
 	Group  string `json:"group,optional"`
 }
 
-// BuildConfigUrl 根据 NacosConfig 组装配置拉取 URL
-func (n *NacosConfig) BuildConfigUrl() string {
-	// 1. 拼接地址：ip1:port,ip2:port,...
+// BuildConfigUrl 组装 nacos gRPC 服务发现 URL，支持集群模式（多地址逗号分隔）
+// 格式: nacos://[user:passwd@]host1:port1,host2:port2/service?namespaceid=xxx&group=xxx
+func (n *NacosConfig) BuildConfigUrl(serviceName string) string {
+	// 1. 拼接多个 nacos 地址，逗号分隔
 	addresses := make([]string, 0, len(n.IpAddress))
 	for _, ip := range n.IpAddress {
 		addresses = append(addresses, fmt.Sprintf("%s:%d", ip, n.Port))
 	}
-	addrStr := strings.Join(addresses, ",")
+	addr := strings.Join(addresses, ",")
 
-	// 2. 构建基础 scheme
-	url := fmt.Sprintf("nacos://%s/%s", addrStr, n.DataId)
+	// 2. 拼接认证信息（user:passwd@）
+	if n.Username != "" && n.Password != "" {
+		addr = fmt.Sprintf("%s:%s@%s", n.Username, n.Password, addr)
+	}
 
-	// 3. 添加查询参数
+	// 3. 构建基础 URL: nacos://host1:port1,host2:port2/service
+	urlStr := fmt.Sprintf("nacos://%s/%s", addr, serviceName)
+
+	// 4. 添加查询参数
 	params := make([]string, 0)
 	if n.NamespaceId != "" {
 		params = append(params, fmt.Sprintf("namespaceid=%s", n.NamespaceId))
@@ -45,16 +51,8 @@ func (n *NacosConfig) BuildConfigUrl() string {
 		params = append(params, fmt.Sprintf("group=%s", n.Group))
 	}
 	if len(params) > 0 {
-		url += "?" + strings.Join(params, "&")
+		urlStr += "?" + strings.Join(params, "&")
 	}
 
-	// 4. 如果有认证信息，插入到 host 之前
-	if n.Username != "" && n.Password != "" {
-		// 注意：如果用户名/密码包含特殊字符，需进行 URL 编码（此处省略，实际应使用 url.QueryEscape）
-		auth := fmt.Sprintf("%s:%s@", n.Username, n.Password)
-		// 在 "nacos://" 之后插入 auth
-		url = strings.Replace(url, "nacos://", "nacos://"+auth, 1)
-	}
-
-	return url
+	return urlStr
 }

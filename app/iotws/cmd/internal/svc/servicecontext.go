@@ -39,21 +39,21 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		log.Fatalf("init nacos err: %v", err)
 	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
+	connection := ws.NewConnection()
+	gateway := ws.NewGatewayr(serviceName, connection, client)
+
 	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-	nacosCli.SetGrpcConfig(&c.RpcClientConf)
-	// grpc.NewDeviceCli(c.RpcClientConf)
-	connection := ws.NewConnection()
-	gateway := ws.NewGatewayr(serviceName, connection, client)
+	nacosCli.SetGrpcConfig(&c.RpcClientConf, c.DeviceServer)
 
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli: devicecli.NewDeviceCli("grpc", serviceName, func(serviceName string) []string {
-			return nacosCli.GetHealthyInstances(serviceName, nacosconfig.Group)
+		DeviceCli: devicecli.NewDeviceCli("grpc", serviceName, func(deviceServiceName string) []string {
+			return nacosCli.GetHealthyInstances(deviceServiceName, nacosconfig.Group)
 		}, c.RpcClientConf),
 		gateway: gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{

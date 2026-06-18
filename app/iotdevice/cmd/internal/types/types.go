@@ -6,6 +6,7 @@ package types
 import (
 	"encoding/json"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -26,8 +27,8 @@ type IotdeviceReq interface {
 type Request struct {
 	Cmd         string          `json:"cmd"`
 	Sn          string          `json:"sn"`
-	ConnId      string          `header:"connId"`
 	Data        json.RawMessage `json:"data"`
+	ConnId      string          `header:"ConnId"`
 	ServiceName string          `header:"ServiceName"` // 从请求头中提取 ServiceName
 }
 
@@ -40,15 +41,14 @@ func (m *Request) GetCmd() string {
 }
 
 func (m *Request) GetData() *structpb.Struct {
-	return &structpb.Struct{
-		Fields: map[string]*structpb.Value{
-			"data": {
-				Kind: &structpb.Value_StringValue{
-					StringValue: string(m.Data),
-				},
-			},
-		},
+	s := &structpb.Struct{}
+	if len(m.Data) == 0 {
+		return s
 	}
+	if err := protojson.Unmarshal(m.Data, s); err != nil {
+		return s
+	}
+	return s
 }
 
 func (m *Request) GetSn() string {

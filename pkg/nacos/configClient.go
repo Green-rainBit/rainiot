@@ -27,10 +27,7 @@ type nacosClient struct {
 	config    openconfig.NacosConfig
 	confCli   config_client.IConfigClient
 	namingCli naming_client.INamingClient
-
-	mu         sync.RWMutex
-	instances  map[string][]string // 格式：ip:port
-	lastUpdate time.Time
+	instances sync.Map
 }
 
 func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
@@ -70,12 +67,13 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return &nacosClient{
+	nc := &nacosClient{
 		config:    config,
 		confCli:   configClient,
 		namingCli: namingClient,
-	}, nil
+	}
+	go nc.autoRefresh()
+	return nc, nil
 
 }
 
@@ -91,16 +89,17 @@ func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namesp
 	return nil
 }
 
-func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
-	serviceName, ip, portStr := util.GetRegistryParameters(c)
-	port, err := strconv.ParseUint(portStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
-	}
-	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
-		Ip:          ip,
-		Port:        port,
-		ServiceName: config.DataId,
+func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfig, c zrpc.RpcServerConf) error {
+	// _, ip, portStr := util.GetRegistryParameters(c)
+	// port, err := strconv.ParseUint(portStr, 10, 64)
+	// if err != nil {
+	// 	return fmt.Errorf("invalid SERVICE_PORT: %w", err)
+	// }
+	_, err := l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
+		Ip:          "127.0.0.1",
+		Port:        9090,
+		ServiceName: c.Name,
+		GroupName:   l.groupOrDefault(config.Group),
 		Weight:      10,
 		Enable:      true,
 		Healthy:     true,
@@ -110,29 +109,64 @@ func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c
 	if err != nil {
 		return fmt.Errorf("failed to register service: %w", err)
 	}
+	log.Printf("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", config.DataId, l.groupOrDefault(config.Group), "127.0.0.1", 9090)
 
-	go handleShutdown(l.namingCli, serviceName, ip, port)
+	go handleShutdown(l.namingCli, config.DataId, "127.0.0.1", 9090)
 	return nil
 }
 
-func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
-
-	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
-		ServiceName: serviceName,
-		GroupName:   groupName,             // 默认值DEFAULT_GROUP
-		Clusters:    []string{"cluster-a"}, // 默认值DEFAULT
+func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
+	_, ip, portStr := util.GetRegistryParameters(c)
+	port, err := strconv.ParseUint(portStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
+	}
+	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
+		Ip:          ip,
+		Port:        port,
+		ServiceName: config.DataId,
+		GroupName:   l.groupOrDefault(config.Group),
+		Weight:      10,
+		Enable:      true,
+		Healthy:     true,
+		Ephemeral:   true,
+		Metadata:    map[string]string{"idc": "shanghai"},
 	})
 	if err != nil {
-		return nil
+		return fmt.Errorf("failed to register service: %w", err)
+	}
+	log.Printf("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", config.DataId, l.groupOrDefault(config.Group), ip, port)
+
+	go handleShutdown(l.namingCli, config.DataId, ip, port)
+	return nil
+}
+
+func (l *nacosClient) groupOrDefault(groupName string) string {
+	if groupName == "" {
+		return "DEFAULT_GROUP"
+	}
+	return groupName
+}
+
+func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
+	groupName = l.groupOrDefault(groupName)
+	log.Printf("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
+	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
+		ServiceName: serviceName,
+		GroupName:   groupName,
+		HealthyOnly: true,
+	})
+	if err != nil {
+		log.Printf("[Nacos] SelectInstances error: service=%s group=%s err=%v", serviceName, groupName, err)
+		return err
 	}
 	addrs := make([]string, 0, len(instances))
 	for _, inst := range instances {
+		log.Printf("[Nacos] found instance: %s:%d healthy=%v enable=%v weight=%f", inst.Ip, inst.Port, inst.Healthy, inst.Enable, inst.Weight)
 		addrs = append(addrs, fmt.Sprintf("%s:%d", inst.Ip, inst.Port))
 	}
-	l.mu.Lock()
-	l.instances[serviceName+":"+groupName] = addrs
-	l.lastUpdate = time.Now()
-	l.mu.Unlock()
+	log.Printf("[Nacos] total instances found: %d", len(addrs))
+	l.instances.Store(serviceName+":"+groupName, addrs)
 	return nil
 }
 
@@ -140,26 +174,39 @@ func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
 func (l *nacosClient) autoRefresh() {
 	ticker := time.NewTicker(10 * time.Second)
 	for range ticker.C {
-		for key, _ := range l.instances {
-			arr := strings.Split(key, ":")
+		l.instances.Range(func(key, value any) bool {
+			k := key.(string)
+			arr := strings.Split(k, ":")
 			if len(arr) != 2 {
-				continue
+				return true
 			}
-			_ = l.GetSeverCli(arr[0], arr[1]) // 忽略错误，保留旧列表
-		}
-
+			err := l.GetSeverCli(arr[0], arr[1]) // 忽略错误，保留旧列表
+			if err != nil {
+				log.Println(err)
+			}
+			return true
+		})
 	}
 }
 
 // GetHealthyInstances 返回当前健康的实例列表（副本）
 func (l *nacosClient) GetHealthyInstances(serviceName, groupName string) []string {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	if _, ok := l.instances[serviceName+":"+groupName]; !ok {
-		_ = l.GetSeverCli(serviceName, groupName) // 首次获取实例列表
+	groupName = l.groupOrDefault(groupName)
+	key := serviceName + ":" + groupName
+	v, ok := l.instances.Load(key)
+	if !ok {
+		if err := l.GetSeverCli(serviceName, groupName); err != nil {
+			log.Println(err)
+			return nil
+		}
+		v, ok = l.instances.Load(key)
+		if !ok {
+			return nil
+		}
 	}
-	out := make([]string, len(l.instances[serviceName+":"+groupName]))
-	copy(out, l.instances[serviceName+":"+groupName])
+	addrs := v.([]string)
+	out := make([]string, len(addrs))
+	copy(out, addrs)
 	return out
 }
 
@@ -182,10 +229,10 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	os.Exit(0)
 }
 
-func (l *nacosClient) SetGrpcConfig(rpcClientConf *zrpc.RpcClientConf) error {
+func (l *nacosClient) SetGrpcConfig(rpcClientConf *zrpc.RpcClientConf, serviceName string) error {
 	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
 		return nil
 	}
-	rpcClientConf.Target = l.config.BuildConfigUrl()
+	rpcClientConf.Target = l.config.BuildConfigUrl(serviceName)
 	return nil
 }

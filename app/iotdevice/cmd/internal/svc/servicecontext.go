@@ -33,7 +33,7 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-	
+	nacosCli.InitNacosRegisterInstanceGrpc(nacosconfig, c.Rpc)
 	driverName := strings.TrimSpace(c.DriverName)
 	if driverName == "" {
 		driverName = "postgres"
