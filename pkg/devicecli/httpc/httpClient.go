@@ -49,9 +49,9 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *dev
 	}
 }
 
-func (d *deviceHttpCli) Push(ctx context.Context, event, connId string, message []byte) ([]byte, error) {
+func (d *deviceHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
 
-	resp, err := d.do(ctx, http.MethodPost, "/device/connect", bytes.NewBuffer(message), d.headers)
+	resp, err := d.do(ctx, http.MethodPost, "/device/connect", connId, bytes.NewBuffer(message), d.headers)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +63,7 @@ func (d *deviceHttpCli) Push(ctx context.Context, event, connId string, message 
 }
 
 // Do 执行 HTTP 请求，自动故障转移
-func (d *deviceHttpCli) do(ctx context.Context, method, path string, body io.Reader, headers map[string]string) (*http.Response, error) {
+func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, body io.Reader, headers map[string]string) (*http.Response, error) {
 	instances := d.fn()
 	if len(instances) == 0 {
 		return nil, fmt.Errorf("无可用服务实例")
@@ -88,6 +88,7 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path string, body io.Rea
 		for k, v := range headers {
 			req.Header.Set(k, v)
 		}
+		req.Header.Set("ConnId", connId)
 
 		resp, err := d.client.Do(req)
 		if err == nil && resp.StatusCode < 500 {

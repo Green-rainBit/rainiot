@@ -25,7 +25,8 @@ type IotdeviceReq interface {
 
 type Request struct {
 	Cmd         string          `json:"cmd"`
-	ConnId      string          `json:"coonId"`
+	Sn          string          `json:"sn"`
+	ConnId      string          `header:"connId"`
 	Data        json.RawMessage `json:"data"`
 	ServiceName string          `header:"ServiceName"` // 从请求头中提取 ServiceName
 }

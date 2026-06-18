@@ -4,7 +4,6 @@
 package logic
 
 import (
-	"bytes"
 	"context"
 
 	"rainiot/app/iotws/cmd/internal/svc"
@@ -29,25 +28,10 @@ func NewIotwsLogic(ctx context.Context, deviceCli devicecli.DeviceCli, svc *svc.
 	}
 }
 
-func (l *IotwsLogic) Iotws(message []byte) (by []byte, err error) {
-	connId := extractConnId(message)
-	resp, err := l.deviceCli.Push(l.ctx, "grpc", connId, message)
+func (l *IotwsLogic) Iotws(connId string, message []byte) (by []byte, ok bool, err error) {
+	resp, err := l.deviceCli.Push(l.ctx, connId, message)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
-	return resp, err
-}
-
-func extractConnId(payload []byte) string {
-	key := []byte(`"connId":"`)
-	i := bytes.Index(payload, key)
-	if i == -1 {
-		return ""
-	}
-	start := i + len(key)
-	end := bytes.IndexByte(payload[start:], '"')
-	if end == -1 {
-		return ""
-	}
-	return string(payload[start : start+end])
+	return resp, true, err
 }

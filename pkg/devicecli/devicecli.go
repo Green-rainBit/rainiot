@@ -10,7 +10,7 @@ import (
 )
 
 type DeviceCli interface {
-	Push(ctx context.Context, event, connId string, message []byte) ([]byte, error)
+	Push(ctx context.Context, connId string, message []byte) ([]byte, error)
 	// Pull(ctx context.Context) (message []byte, err error)
 }
 
@@ -28,9 +28,9 @@ func NewDeviceCli(model, serviceName string, fn func(serviceName string) []strin
 	}
 }
 
-func (d *deviceCli) Push(ctx context.Context, event, connId string, message []byte) ([]byte, error) {
+func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
 	if d.model == "http" {
-		return d.zrpc.Push(ctx, event, connId, message)
+		return d.zrpc.Push(ctx, connId, message)
 	}
-	return d.http.Push(ctx, event, connId, message)
+	return d.http.Push(ctx, connId, message)
 }

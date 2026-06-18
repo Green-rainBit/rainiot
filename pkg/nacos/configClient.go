@@ -8,7 +8,10 @@ import (
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 	"strconv"
+	"strings"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
@@ -24,6 +27,10 @@ type nacosClient struct {
 	config    openconfig.NacosConfig
 	confCli   config_client.IConfigClient
 	namingCli naming_client.INamingClient
+
+	mu         sync.RWMutex
+	instances  map[string][]string // 格式：ip:port
+	lastUpdate time.Time
 }
 
 func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
@@ -108,17 +115,52 @@ func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c
 	return nil
 }
 
-func (l *nacosClient) GetSeverCli(serviceName, groupName string) (ip string, port uint64, e error) {
+func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
 
-	instance, err := l.namingCli.SelectOneHealthyInstance(vo.SelectOneHealthInstanceParam{
+	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
 		ServiceName: serviceName,
 		GroupName:   groupName,             // 默认值DEFAULT_GROUP
 		Clusters:    []string{"cluster-a"}, // 默认值DEFAULT
 	})
 	if err != nil {
-		return "", 0, nil
+		return nil
 	}
-	return instance.Ip, instance.Port, nil
+	addrs := make([]string, 0, len(instances))
+	for _, inst := range instances {
+		addrs = append(addrs, fmt.Sprintf("%s:%d", inst.Ip, inst.Port))
+	}
+	l.mu.Lock()
+	l.instances[serviceName+":"+groupName] = addrs
+	l.lastUpdate = time.Now()
+	l.mu.Unlock()
+	return nil
+}
+
+// autoRefresh 定期刷新
+func (l *nacosClient) autoRefresh() {
+	ticker := time.NewTicker(10 * time.Second)
+	for range ticker.C {
+		for key, _ := range l.instances {
+			arr := strings.Split(key, ":")
+			if len(arr) != 2 {
+				continue
+			}
+			_ = l.GetSeverCli(arr[0], arr[1]) // 忽略错误，保留旧列表
+		}
+
+	}
+}
+
+// GetHealthyInstances 返回当前健康的实例列表（副本）
+func (l *nacosClient) GetHealthyInstances(serviceName, groupName string) []string {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	if _, ok := l.instances[serviceName+":"+groupName]; !ok {
+		_ = l.GetSeverCli(serviceName, groupName) // 首次获取实例列表
+	}
+	out := make([]string, len(l.instances[serviceName+":"+groupName]))
+	copy(out, l.instances[serviceName+":"+groupName])
+	return out
 }
 
 func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip string, port uint64) {
@@ -147,4 +189,3 @@ func (l *nacosClient) SetGrpcConfig(rpcClientConf *zrpc.RpcClientConf) error {
 	rpcClientConf.Target = l.config.BuildConfigUrl()
 	return nil
 }
-

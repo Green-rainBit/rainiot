@@ -45,7 +45,6 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 	nacosCli.SetGrpcConfig(&c.RpcClientConf)
 	// grpc.NewDeviceCli(c.RpcClientConf)
-
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
@@ -53,7 +52,9 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		// DeviceCli:  deviceCli,
+		DeviceCli: devicecli.NewDeviceCli("grpc", serviceName, func(serviceName string) []string {
+			return nacosCli.GetHealthyInstances(serviceName, nacosconfig.Group)
+		}, c.RpcClientConf),
 		gateway: gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
@@ -61,6 +62,10 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 				logger.Error("panic:", recover())
 			}, // 开启异常恢复
 			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
+
+			NewSession: func() gws.SessionStorage {
+				return gws.NewConcurrentMap[string, any](1)
+			},
 
 			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存
 			WriteBufferSize:     512,                                   // 写缓冲区同样降低
@@ -73,6 +78,6 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	}
 }
 
-func (s *ServiceContext) WireWsFn(fn func(message []byte) (by []byte, err error)) {
+func (s *ServiceContext) WireWsFn(fn func(connId string, message []byte) ([]byte, bool, error)) {
 	s.gateway.Fn = fn
 }
