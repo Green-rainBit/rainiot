@@ -11,7 +11,8 @@
     "Host": "",
     "Pass": ""
   },
-  "DeviceServer": "",
-  "DevicePort": 0,
-  "DviceHost": ""
+  "DeviceServerMap": {},
+  "MiddlewaresConf": {
+    "Recover": true
+  }
 }

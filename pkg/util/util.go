@@ -35,6 +35,27 @@ func GetRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
 	return
 }
 
+func GetGrpcRegistryParameters(serviceName, listenOn string) (ip, portStr string) {
+	ip = os.Getenv("SERVICE_IP")
+	if ip == "" {
+		ip = getLocalIP()
+		if ip == "" {
+			ip = "127.0.0.1"
+		}
+	}
+
+	portStr = os.Getenv("SERVICE_GRPC_PORT")
+	if portStr == "" {
+		_, port, err := net.SplitHostPort(listenOn)
+		if err == nil {
+			portStr = port
+		} else {
+			portStr = "8080"
+		}
+	}
+	return
+}
+
 func getLocalIP() string {
 	// 方法1：通过一个外部地址获取本机出口 IP
 	conn, err := net.Dial("udp", "8.8.8.8:80")

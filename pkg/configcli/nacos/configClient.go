@@ -94,14 +94,17 @@ func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namesp
 }
 
 func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfig, c zrpc.RpcServerConf) error {
-	// _, ip, portStr := util.GetRegistryParameters(c)
-	// port, err := strconv.ParseUint(portStr, 10, 64)
-	// if err != nil {
-	// 	return fmt.Errorf("invalid SERVICE_PORT: %w", err)
-	// }
-	_, err := l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
-		Ip:          "127.0.0.1",
-		Port:        9090,
+	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
+		return nil
+	}
+	ip, portStr := util.GetGrpcRegistryParameters(c.Name, c.ListenOn)
+	port, err := strconv.ParseUint(portStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid gRPC port: %w", err)
+	}
+	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
+		Ip:          ip,
+		Port:        port,
 		ServiceName: c.Name,
 		GroupName:   l.groupOrDefault(config.Group),
 		Weight:      10,
@@ -111,11 +114,11 @@ func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfi
 		Metadata:    map[string]string{"idc": "shanghai"},
 	})
 	if err != nil {
-		return fmt.Errorf("failed to register service: %w", err)
+		return fmt.Errorf("failed to register gRPC service: %w", err)
 	}
-	log.Printf("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", config.DataId, l.groupOrDefault(config.Group), "127.0.0.1", 9090)
+	log.Printf("[Nacos] registered gRPC instance: service=%s group=%s ip=%s port=%d", c.Name, l.groupOrDefault(config.Group), ip, port)
 
-	go handleShutdown(l.namingCli, config.DataId, "127.0.0.1", 9090)
+	go handleShutdown(l.namingCli, c.Name, ip, port)
 	return nil
 }
 
