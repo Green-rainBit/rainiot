@@ -35,7 +35,7 @@ func main() {
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	ctx := svc.NewServiceContext(c, nacosconfig)
+	ctx := svc.NewServiceContext(&c, nacosconfig)
 
 	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli, ctx)
 	ctx.WireWsFn(l.Iotws)

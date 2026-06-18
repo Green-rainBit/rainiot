@@ -24,22 +24,21 @@ type NacosConfig struct {
 	Group  string `json:"group,optional"`
 }
 
-// BuildConfigUrl 组装 nacos gRPC 服务发现 URL，支持集群模式（多地址逗号分隔）
-// 格式: nacos://[user:passwd@]host1:port1,host2:port2/service?namespaceid=xxx&group=xxx
+// BuildConfigUrl 组装 go-zero gRPC nacos 服务发现 URL
+// 格式: nacos://[user:passwd@]host:port/service?namespaceid=xxx&group=xxx
 func (n *NacosConfig) BuildConfigUrl(serviceName string) string {
-	// 1. 拼接多个 nacos 地址，逗号分隔
-	addresses := make([]string, 0, len(n.IpAddress))
-	for _, ip := range n.IpAddress {
-		addresses = append(addresses, fmt.Sprintf("%s:%d", ip, n.Port))
+	// 1. 取首个 nacos 地址
+	addr := ""
+	if len(n.IpAddress) > 0 {
+		addr = fmt.Sprintf("%s:%d", n.IpAddress[0], n.Port)
 	}
-	addr := strings.Join(addresses, ",")
 
 	// 2. 拼接认证信息（user:passwd@）
 	if n.Username != "" && n.Password != "" {
 		addr = fmt.Sprintf("%s:%s@%s", n.Username, n.Password, addr)
 	}
 
-	// 3. 构建基础 URL: nacos://host1:port1,host2:port2/service
+	// 3. 构建基础 URL: nacos://host:port/service
 	urlStr := fmt.Sprintf("nacos://%s/%s", addr, serviceName)
 
 	// 4. 添加查询参数

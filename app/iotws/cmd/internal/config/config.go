@@ -4,6 +4,8 @@
 package config
 
 import (
+	"sync"
+
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -13,9 +15,21 @@ import (
 type Config struct {
 	rest.RestConf
 
-	RpcClientConf zrpc.RpcClientConf
-	CacheRedis    redis.RedisConf
-	DeviceServer  string
-	DevicePort    uint64
-	DviceHost     string
+	RpcClientConf   zrpc.RpcClientConf
+	CacheRedis      redis.RedisConf
+	DeviceServerMap sync.Map
+}
+
+func (c *Config) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {
+
+}
+
+func (c *Config) GetHealthyInstances(serviceName string) []string {
+	value, ok := c.DeviceServerMap.Load(serviceName)
+	strings, ok := value.([]string)
+	if !ok {
+		return nil
+	}
+	return strings
+
 }

@@ -10,7 +10,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/model"
-	"rainiot/pkg/nacos"
+	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/openconfig"
 
 	_ "github.com/lib/pq"

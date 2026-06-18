@@ -3,6 +3,7 @@ package devicecli
 import (
 	"context"
 
+	conf_cli "rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/devicecli/httpc"
 
@@ -20,11 +21,11 @@ type deviceCli struct {
 	zrpc  DeviceCli
 }
 
-func NewDeviceCli(model, serviceName string, fn func(serviceName string) []string, zrpcConf zrpc.RpcClientConf) DeviceCli {
+func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf) DeviceCli {
 	return &deviceCli{
 		model: model,
-		http:  httpc.NewDeviceCli(serviceName, fn),
-		zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf),
+		http:  httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
+		zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf, confCli.SetGrpcConfig),
 	}
 }
 

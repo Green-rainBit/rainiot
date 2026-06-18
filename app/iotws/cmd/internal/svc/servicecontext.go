@@ -10,8 +10,9 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
+	configcli "rainiot/pkg/configcli"
+	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/devicecli"
-	"rainiot/pkg/nacos"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
@@ -21,7 +22,7 @@ import (
 )
 
 type ServiceContext struct {
-	Config     config.Config
+	Config     *config.Config
 	Redis      *redis.ClusterClient
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
@@ -29,7 +30,7 @@ type ServiceContext struct {
 	gateway    *ws.Gateway
 }
 
-func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
+func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
 	client := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
@@ -38,35 +39,32 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	var configcli configcli.ConfigCli = c
+	if nacosCli != nil {
+		nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
+			json.Unmarshal([]byte(data), c)
+		})
+		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
+		configcli = nacosCli
+	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
-
-	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
-		json.Unmarshal([]byte(data), &c)
-	})
-	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-	nacosCli.SetGrpcConfig(&c.RpcClientConf, c.DeviceServer)
-
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli: devicecli.NewDeviceCli("grpc", serviceName, func(deviceServiceName string) []string {
-			return nacosCli.GetHealthyInstances(deviceServiceName, nacosconfig.Group)
-		}, c.RpcClientConf),
-		gateway: gateway,
+		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.RpcClientConf),
+		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
 			Recovery: func(logger gws.Logger) {
 				logger.Error("panic:", recover())
 			}, // 开启异常恢复
 			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
-
 			NewSession: func() gws.SessionStorage {
 				return gws.NewConcurrentMap[string, any](1)
 			},
-
 			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存
 			WriteBufferSize:     512,                                   // 写缓冲区同样降低
 			ParallelEnabled:     false,                                 // 1000 QPS 完全不需要并行处理，可避免 goroutine 数量过多

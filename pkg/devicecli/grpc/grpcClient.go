@@ -14,7 +14,9 @@ type deviceGrpcCli struct {
 	serviceName string
 }
 
-func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
+func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf, fn func(serviceName string, zrpcConf *zrpc.RpcClientConf)) *deviceGrpcCli {
+	fn(serviceName, &zrpcConf)
+
 	conn := zrpc.MustNewClient(zrpcConf)
 	return &deviceGrpcCli{
 		client:      pb.NewIotdeviceClient(conn.Conn()),

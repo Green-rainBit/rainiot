@@ -23,6 +23,9 @@ import (
 	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
+type NacosClient interface {
+}
+
 type nacosClient struct {
 	config    openconfig.NacosConfig
 	confCli   config_client.IConfigClient
@@ -73,6 +76,7 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 		namingCli: namingClient,
 	}
 	go nc.autoRefresh()
+
 	return nc, nil
 
 }
@@ -190,12 +194,11 @@ func (l *nacosClient) autoRefresh() {
 }
 
 // GetHealthyInstances 返回当前健康的实例列表（副本）
-func (l *nacosClient) GetHealthyInstances(serviceName, groupName string) []string {
-	groupName = l.groupOrDefault(groupName)
-	key := serviceName + ":" + groupName
+func (l *nacosClient) GetHealthyInstances(serviceName string) []string {
+	key := serviceName + ":" + l.config.Group
 	v, ok := l.instances.Load(key)
 	if !ok {
-		if err := l.GetSeverCli(serviceName, groupName); err != nil {
+		if err := l.GetSeverCli(serviceName, l.config.Group); err != nil {
 			log.Println(err)
 			return nil
 		}
@@ -229,10 +232,9 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	os.Exit(0)
 }
 
-func (l *nacosClient) SetGrpcConfig(rpcClientConf *zrpc.RpcClientConf, serviceName string) error {
+func (l *nacosClient) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {
 	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
-		return nil
+		return
 	}
 	rpcClientConf.Target = l.config.BuildConfigUrl(serviceName)
-	return nil
 }
