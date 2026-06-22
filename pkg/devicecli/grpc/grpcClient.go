@@ -20,7 +20,7 @@ type deviceGrpcCli struct {
 }
 
 const (
-	defaultDeviceServiceName = "iotdevice.grpc"
+	DefaultDeviceServiceName = "iotdevice.grpc"
 	defaultRetryCount        = 3
 	defaultRetryInterval     = 1 * time.Second
 )

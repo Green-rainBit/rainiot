@@ -13,7 +13,8 @@ import (
 	configcli "rainiot/pkg/configcli"
 	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/devicecli"
-	"rainiot/pkg/devicecli/grpc"
+	"rainiot/pkg/devicecli/grpc/instances"
+	"rainiot/pkg/devicecli/grpc/rpcn"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
@@ -51,10 +52,15 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		json.Unmarshal([]byte(data), c)
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
 		configcli = nacosCli
-		if c.Rpc.Model == "nacos" {
-			resolver.Register(grpc.NewBuilder(nacosCli.GetNacosClient()))
-			c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
-		}
+	}
+	if nacosCli != nil && c.Rpc.Model == "nacos" {
+		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
+		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
+	} else if c.Rpc.Model == "instances" {
+		resolver.Register(instances.NewBuilder(func() []string {
+			return configcli.GetHealthyInstances("iotdevice.grpc")
+		}))
+		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
 	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
