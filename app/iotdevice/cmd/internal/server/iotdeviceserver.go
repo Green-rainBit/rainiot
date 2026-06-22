@@ -9,7 +9,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
-	"rainiot/pkg/devicecli/pb"
+	"rainiot/pkg/devicecli/grpc/pb"
 )
 
 type IotdeviceServer struct {

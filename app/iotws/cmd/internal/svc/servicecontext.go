@@ -53,6 +53,9 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
 		configcli = nacosCli
 	}
+	// 根据 Rpc.Model 选择 gRPC 服务发现策略：
+	//   "nacos"     → nacos Subscribe 推送模式，实时感知实例上下线
+	//   "instances" → 定时轮询 DeviceServerMap（10s），适用于无 Nacos 环境
 	if nacosCli != nil && c.Rpc.Model == "nacos" {
 		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
 		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")

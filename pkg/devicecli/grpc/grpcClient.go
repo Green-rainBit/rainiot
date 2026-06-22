@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"rainiot/pkg/devicecli/pb"
+	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc/codes"

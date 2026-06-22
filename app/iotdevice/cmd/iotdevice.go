@@ -12,7 +12,7 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/cmd/internal/handler"
 	"rainiot/app/iotdevice/cmd/internal/svc"
-	"rainiot/pkg/devicecli/pb"
+	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"

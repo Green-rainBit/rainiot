@@ -11,6 +11,9 @@
     "Host": "",
     "Pass": ""
   },
+  "Rpc": {
+    "Model": "instances"
+  },
   "DeviceServerMap": {},
   "MiddlewaresConf": {
     "Recover": true
