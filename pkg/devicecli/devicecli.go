@@ -25,7 +25,7 @@ func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcCon
 	return &deviceCli{
 		model: model,
 		http:  httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
-		zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf, confCli.SetGrpcConfig),
+		zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf),
 	}
 }
 

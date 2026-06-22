@@ -9,13 +9,17 @@ import (
 )
 
 type resolvr struct {
-	cancelFunc context.CancelFunc
+	cancelFunc  context.CancelFunc
+	unsubscribe func()
 }
 
 func (r *resolvr) ResolveNow(resolver.ResolveNowOptions) {}
 
 // Close closes the resolver.
 func (r *resolvr) Close() {
+	if r.unsubscribe != nil {
+		r.unsubscribe()
+	}
 	r.cancelFunc()
 }
 

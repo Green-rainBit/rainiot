@@ -14,13 +14,12 @@ import (
 type Config struct {
 	rest.RestConf
 
-	RpcClientConf   zrpc.RpcClientConf
+	Rpc struct {
+		zrpc.RpcClientConf
+		Model string `json:",optional"`
+	} `json:",optional"`
 	CacheRedis      redis.RedisConf
 	DeviceServerMap sync.Map
-}
-
-func (c *Config) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {
-
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {
@@ -30,5 +29,4 @@ func (c *Config) GetHealthyInstances(serviceName string) []string {
 		return nil
 	}
 	return strings
-
 }

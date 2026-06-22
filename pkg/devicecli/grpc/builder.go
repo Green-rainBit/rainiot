@@ -20,10 +20,6 @@ func NewBuilder(client naming_client.INamingClient) resolver.Builder {
 }
 
 func (b *builder) Build(target resolver.Target, conn resolver.ClientConn, opts resolver.BuildOptions) (resolver.Resolver, error) {
-	serviceName := target.URL.Path
-	if len(serviceName) > 0 && serviceName[0] == '/' {
-		serviceName = serviceName[1:]
-	}
 	groupName := target.URL.Query().Get("group")
 	if groupName == "" {
 		groupName = "DEFAULT_GROUP"
@@ -33,7 +29,7 @@ func (b *builder) Build(target resolver.Target, conn resolver.ClientConn, opts r
 	pipe := make(chan []string)
 
 	initial, err := b.client.SelectInstances(vo.SelectInstancesParam{
-		ServiceName: serviceName,
+		ServiceName: defaultDeviceServiceName,
 		GroupName:   groupName,
 		HealthyOnly: true,
 	})
@@ -48,24 +44,35 @@ func (b *builder) Build(target resolver.Target, conn resolver.ClientConn, opts r
 	addresses := instancesToAddresses(initial)
 	pipe <- addresses
 
-	go func() {
-		b.client.Subscribe(&vo.SubscribeParam{
-			ServiceName: serviceName,
-			GroupName:   groupName,
-			SubscribeCallback: func(services []model.Instance, err error) {
-				if err != nil {
-					logger.Error("[Nacos resolver] subscribe callback error: %v", err)
-					return
-				}
-				select {
-				case pipe <- instancesToAddresses(services):
-				case <-ctx.Done():
-				}
-			},
-		})
-	}()
+	callback := func(services []model.Instance, err error) {
+		if err != nil {
+			logger.Error("[Nacos resolver] subscribe callback error: %v", err)
+			return
+		}
+		select {
+		case pipe <- instancesToAddresses(services):
+		case <-ctx.Done():
+		}
+	}
 
-	return &resolvr{cancelFunc: cancel}, nil
+	subscribeParam := &vo.SubscribeParam{
+		ServiceName:       defaultDeviceServiceName,
+		GroupName:         groupName,
+		SubscribeCallback: callback,
+	}
+
+	if err := b.client.Subscribe(subscribeParam); err != nil {
+		logger.Error("[Nacos resolver] subscribe error: %v", err)
+	}
+
+	return &resolvr{
+		cancelFunc: cancel,
+		unsubscribe: func() {
+			if err := b.client.Unsubscribe(subscribeParam); err != nil {
+				logger.Error("[Nacos resolver] unsubscribe error: %v", err)
+			}
+		},
+	}, nil
 }
 
 func instancesToAddresses(services []model.Instance) []string {

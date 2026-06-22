@@ -80,16 +80,23 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 
 }
 
-func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namespace, group, dataId, data string)) error {
-	err := l.confCli.ListenConfig(vo.ConfigParam{
+func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namespace, group, dataId, data string)) (string, error) {
+	configstring, err := l.confCli.GetConfig(vo.ConfigParam{
+		DataId: dataId,
+		Group:  group,
+	})
+	if err != nil {
+		return "", err
+	}
+	err = l.confCli.ListenConfig(vo.ConfigParam{
 		DataId:   dataId,
 		Group:    group,
 		OnChange: onChange,
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	return configstring, nil
 }
 
 func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfig, c zrpc.RpcServerConf) error {

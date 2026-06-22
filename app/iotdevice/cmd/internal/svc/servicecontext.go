@@ -29,7 +29,7 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
-	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
+	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)

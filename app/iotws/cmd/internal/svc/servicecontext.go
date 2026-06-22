@@ -42,12 +42,19 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	}
 	var configcli configcli.ConfigCli = c
 	if nacosCli != nil {
-		nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
+		data, err := nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
 			json.Unmarshal([]byte(data), c)
 		})
+		if err != nil {
+			log.Fatalf("init nacos config err: %v", err)
+		}
+		json.Unmarshal([]byte(data), c)
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
 		configcli = nacosCli
-		resolver.Register(grpc.NewBuilder(nacosCli.GetNacosClient()))
+		if c.Rpc.Model == "nacos" {
+			resolver.Register(grpc.NewBuilder(nacosCli.GetNacosClient()))
+			c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
+		}
 	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
@@ -57,12 +64,17 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.RpcClientConf),
+		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.Rpc.RpcClientConf),
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
 			Recovery: func(logger gws.Logger) {
-				logger.Error("panic:", recover())
+				func() {
+					if r := recover(); r != nil {
+						logger.Error(r)
+					}
+					return
+				}()
 			}, // 开启异常恢复
 			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
 			NewSession: func() gws.SessionStorage {

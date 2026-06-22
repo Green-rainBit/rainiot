@@ -25,9 +25,7 @@ const (
 	defaultRetryInterval     = 1 * time.Second
 )
 
-func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf, fn func(devServiceName string, zrpcConf *zrpc.RpcClientConf)) *deviceGrpcCli {
-	fn(defaultDeviceServiceName, &zrpcConf)
-
+func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
 	conn := zrpc.MustNewClient(zrpcConf)
 	return &deviceGrpcCli{
 		client:        pb.NewIotdeviceClient(conn.Conn()),
