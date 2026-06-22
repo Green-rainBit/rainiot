@@ -10,17 +10,21 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
+	configcli "rainiot/pkg/configcli"
+	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/devicecli"
-	"rainiot/pkg/nacos"
+	"rainiot/pkg/devicecli/grpc/instances"
+	"rainiot/pkg/devicecli/grpc/rpcn"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc/resolver"
 )
 
 type ServiceContext struct {
-	Config     config.Config
+	Config     *config.Config
 	Redis      *redis.ClusterClient
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
@@ -28,7 +32,7 @@ type ServiceContext struct {
 	gateway    *ws.Gateway
 }
 
-func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
+func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
 	client := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
@@ -37,28 +41,54 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	var configcli configcli.ConfigCli = c
+	if nacosCli != nil {
+		data, err := nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
+			json.Unmarshal([]byte(data), c)
+		})
+		if err != nil {
+			log.Fatalf("init nacos config err: %v", err)
+		}
+		json.Unmarshal([]byte(data), c)
+		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
+		configcli = nacosCli
+	}
+	// 根据 Rpc.Model 选择 gRPC 服务发现策略：
+	//   "nacos"     → nacos Subscribe 推送模式，实时感知实例上下线
+	//   "instances" → 定时轮询 DeviceServerMap（10s），适用于无 Nacos 环境
+	if nacosCli != nil && c.Rpc.Model == "nacos" {
+		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
+		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
+	} else if c.Rpc.Model == "instances" {
+		resolver.Register(instances.NewBuilder(func() []string {
+			return configcli.GetHealthyInstances("iotdevice.grpc")
+		}))
+		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
+	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
-	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
-		json.Unmarshal([]byte(data), &c)
-	})
-	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-
-	deviceCli := devicecli.NewDeviceCli(c.Mode, serviceName, func() (string, uint64, error) {
-		return nacosCli.GetSeverCli(c.DeviceServer, nacosconfig.Group)
-	}, c.DviceHost, c.DevicePort)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  deviceCli,
+		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.Rpc.RpcClientConf),
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
-			// Recovery:          gws.Recovery,                         // 开启异常恢复
+			Recovery: func(logger gws.Logger) {
+				func() {
+					if r := recover(); r != nil {
+						logger.Error(r)
+					}
+					return
+				}()
+			}, // 开启异常恢复
 			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
-
+			NewSession: func() gws.SessionStorage {
+				return gws.NewConcurrentMap[string, any](1)
+			},
 			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存
 			WriteBufferSize:     512,                                   // 写缓冲区同样降低
 			ParallelEnabled:     false,                                 // 1000 QPS 完全不需要并行处理，可避免 goroutine 数量过多
@@ -70,6 +100,6 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	}
 }
 
-func (s *ServiceContext) WireWsFn(fn func(message []byte) (by []byte, err error)) {
+func (s *ServiceContext) WireWsFn(fn func(connId string, message []byte) ([]byte, bool, error)) {
 	s.gateway.Fn = fn
 }

@@ -28,12 +28,12 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 	}
 }
 
-func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err error) {
-	if req.Sn == "" {
+func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response, err error) {
+	if req.GetConnId() == "" {
 		l.Logger.Errorf("device sn cannot be empty")
 		return nil, errors.New("device sn cannot be empty")
 	}
-	exists, err := l.svcCtx.Redis.Exists(l.ctx, cache.GetCacheConn(req.Sn)).Result()
+	exists, err := l.svcCtx.Redis.Exists(l.ctx, cache.GetCacheConn(req.GetConnId())).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +41,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		l.Logger.Errorf("device already logged in")
 		return nil, errors.New("device already logged in")
 	}
-	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.Sn)
+	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetConnId())
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func (l *iotLoginLogic) Iotdevice(req *types.Request) (resp *types.Response, err
 		l.Logger.Errorf("device not found")
 		return nil, errors.New("device not found")
 	}
-	err = l.svcCtx.Redis.Set(l.ctx, cache.GetCacheConn(req.Sn), req.ServiceName, cache.ConnTime).Err()
+	err = l.svcCtx.Redis.Set(l.ctx, cache.GetCacheConn(req.GetConnId()), req.GetServiceName(), cache.ConnTime).Err()
 	if err != nil {
 		return nil, err
 	}

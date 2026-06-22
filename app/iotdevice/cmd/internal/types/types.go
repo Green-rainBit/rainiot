@@ -3,11 +3,79 @@
 
 package types
 
+import (
+	"encoding/json"
+
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/known/structpb"
+)
+
+type IotdeviceReq interface {
+	Descriptor() ([]byte, []int)
+	GetCmd() string
+	GetData() *structpb.Struct
+	GetSn() string
+	GetConnId() string
+	GetServiceName() string
+	ProtoMessage()
+	ProtoReflect() protoreflect.Message
+	Reset()
+	String() string
+}
+
 type Request struct {
-	Cmd         string         `json:"cmd"`
-	Sn          string         `json:"sn"`
-	Data        map[string]any `json:"data,optional"`
-	ServiceName string         `header:"ServiceName"` // 从请求头中提取 ServiceName
+	Cmd         string          `json:"cmd"`
+	Sn          string          `json:"sn"`
+	Data        json.RawMessage `json:"data"`
+	ConnId      string          `header:"ConnId"`
+	ServiceName string          `header:"ServiceName"` // 从请求头中提取 ServiceName
+}
+
+func (m *Request) Descriptor() ([]byte, []int) {
+	return []byte(nil), []int{}
+}
+
+func (m *Request) GetCmd() string {
+	return m.Cmd
+}
+
+func (m *Request) GetData() *structpb.Struct {
+	s := &structpb.Struct{}
+	if len(m.Data) == 0 {
+		return s
+	}
+	if err := protojson.Unmarshal(m.Data, s); err != nil {
+		return s
+	}
+	return s
+}
+
+func (m *Request) GetSn() string {
+	return m.ConnId
+}
+
+func (m *Request) GetConnId() string {
+	return m.ConnId
+}
+
+func (m *Request) ProtoMessage() {
+	return
+}
+
+func (m *Request) ProtoReflect() protoreflect.Message {
+	return nil
+}
+
+func (m *Request) GetServiceName() string {
+	return m.ServiceName
+}
+
+func (m *Request) String() string {
+	return ""
+}
+
+func (m *Request) Reset() {
 }
 
 type Response struct {

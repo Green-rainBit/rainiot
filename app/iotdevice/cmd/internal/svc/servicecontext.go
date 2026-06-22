@@ -10,7 +10,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/model"
-	"rainiot/pkg/nacos"
+	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/openconfig"
 
 	_ "github.com/lib/pq"
@@ -29,11 +29,11 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
-	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.NamespaceId, func(namespace, group, dataId, data string) {
+	nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
 		json.Unmarshal([]byte(data), &c)
 	})
 	nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
-	
+	nacosCli.InitNacosRegisterInstanceGrpc(nacosconfig, c.Rpc)
 	driverName := strings.TrimSpace(c.DriverName)
 	if driverName == "" {
 		driverName = "postgres"

@@ -11,7 +11,11 @@
     "Host": "",
     "Pass": ""
   },
-  "DeviceServer": "",
-  "DevicePort": 0,
-  "DviceHost": ""
+  "Rpc": {
+    "Model": "instances"
+  },
+  "DeviceServerMap": {},
+  "MiddlewaresConf": {
+    "Recover": true
+  }
 }

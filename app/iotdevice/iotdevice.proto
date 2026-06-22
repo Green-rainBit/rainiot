@@ -1,0 +1,30 @@
+// 声明 proto 语法版本，固定值
+syntax = "proto3";
+
+import "google/protobuf/struct.proto";
+
+// proto 包名
+package iotdevice;
+
+// 生成 golang 代码后的包名
+option go_package = "app/iotdevice/pb";
+
+// 定义请求体
+message DeviceConnectReq {
+  string cmd = 1;
+  string sn = 2;
+  string connId = 3;
+  google.protobuf.Struct data = 4;
+  string serviceName = 5;
+}
+
+// 定义响应体
+message DeviceConnectResp {
+  string message = 1;
+}
+
+// 定义设备服务
+service Iotdevice {
+  // 定义一个 DeviceConnect 一元 rpc 方法，请求体和响应体必填。
+  rpc DeviceConnect(DeviceConnectReq) returns (DeviceConnectResp);
+}

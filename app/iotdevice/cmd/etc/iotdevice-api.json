@@ -6,10 +6,15 @@
     "Mode": "file",
     "Path": "logs/iotdevice-api"
   },
+  "DriverName": "",
   "DataSource": "",
   "CacheRedis": {
     "type": "cluster",
     "Host": "",
     "Pass": ""
+  },
+  "Rpc": {
+    "Name": "iotdevice_grpc",
+    "ListenOn": "0.0.0.0:9090"
   }
 }

@@ -62,8 +62,10 @@ rainIot/
 │       └── cmd/           # 入口、配置、logic
 ├── pkg/                   # 共享包
 │   ├── cache/             # Redis 缓存、分布式锁、发布订阅
-│   ├── devicecli/         # 设备服务 HTTP 客户端
-│   ├── nacos/             # Nacos 服务发现 & 配置客户端
+│   ├── devicecli/         # 设备服务客户端（HTTP + gRPC）
+│   │   ├── grpc/rpcn/     #   Nacos gRPC resolver（Subscribe 推送模式）
+│   │   └── grpc/instances/#   轮询式 gRPC resolver（无 Nacos 环境）
+│   ├── configcli/         # 配置客户端抽象
 │   ├── openconfig/        # Nacos 配置结构体
 │   ├── util/              # 工具函数
 │   └── wscli/             # WebSocket 推送客户端
@@ -138,6 +140,38 @@ go build -o bin/iotcron ./app/iotcron/cmd
 
 - `model` 设为 `"nacos"` 启用 Nacos 服务发现，设为 `"local"` 则使用静态配置。
 - 也可通过环境变量 `SERVICE_NAME`、`SERVICE_IP`、`SERVICE_PORT` 覆盖服务注册参数。
+
+#### gRPC 服务发现配置（iotws）
+
+iotws 通过 gRPC 调用 iotdevice，服务发现由 `Rpc.Model` 字段控制：
+
+```json
+{
+  "Rpc": {
+    "Model": "nacos"
+  }
+}
+```
+
+| `Rpc.Model` | 服务发现方式 | 适用场景 |
+|---|---|---|
+| `"nacos"` | Nacos Subscribe 推送，实时感知实例上下线 | 有 Nacos 环境 |
+| `"instances"` | 轮询 `DeviceServerMap`（10s 间隔），支持配置热更新 | 无 Nacos 的普通模式 |
+| 空 / 不设置 | 不注册自定义 resolver，走 go-zero 默认直连 | 单一固定实例 |
+
+**nacos 模式**：需配合 nacos 配置文件 `model=nacos`，同时 iotdevice 需通过 `InitNacosRegisterInstanceGrpc` 将 gRPC 服务注册到 Nacos。
+
+**instances 模式**：通过 `DeviceServerMap` 配置静态实例映射，运行时可热更新（Nacos 配置监听或文件变更），无需 Nacos 服务发现。
+
+```json
+{
+  "DeviceServerMap": {
+    "iotdevice_api": ["127.0.0.1:9090"]
+  }
+}
+```
+
+两种模式共用同一套 `resolvr` 架构，内部通过 channel 管道将地址变更推送到 gRPC 连接池，保证长连接优势的同时支持地址热更新。
 
 ### 运行
 

@@ -6,7 +6,9 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"runtime/debug"
 	"time"
 
 	"rainiot/pkg/cache"
@@ -20,6 +22,8 @@ const (
 	PingWait     = 10 * time.Second
 )
 
+var serverError = []byte("server error")
+
 func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
 	return &Gateway{
 		connection: conn,
@@ -30,7 +34,7 @@ func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient)
 
 type Gateway struct {
 	serverName string
-	Fn         func(message []byte) (by []byte, err error)
+	Fn         func(connId string, message []byte) ([]byte, bool, error)
 	connection Connection
 	redis      *redis.ClusterClient
 }
@@ -100,37 +104,50 @@ func (c *Gateway) OnPong(socket *gws.Conn, payload []byte) {
 
 func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
-	by, err := c.Fn(message.Bytes())
-	_, ok := socket.Session().Load("connId")
-	if !ok {
+	defer c.recover("OnMessage", socket)
+	connId, ok := socket.Session().Load("connId")
+	switch ok {
+	case false:
+		sn := c.extractSn(message.Bytes())
+		by, _, err := c.Fn(sn, message.Bytes())
 		if err != nil {
 			defer c.ServerOnClose(socket, err)
 			return
 		}
-		socket.Session().Store("connId", c.extractSn(message.Bytes()))
+
+		socket.Session().Store("connId", sn)
 		socket.WriteMessage(message.Opcode, by)
-	} else {
+	case true:
+		by, sync, err := c.Fn(connId.(string), message.Bytes())
 		if err != nil {
 			defer socket.WriteMessage(message.Opcode, []byte(err.Error()))
 			return
 		}
-		socket.WriteMessage(message.Opcode, by)
-	}
+		if sync {
+			socket.WriteMessage(message.Opcode, by)
+		}
 
+	}
 }
 
-func (c *Gateway) extractSn(payload []byte) []byte {
+func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
+	if r := recover(); r != nil {
+		log.Printf("[Recover] %s panic: %v\n%s", ctx, r, debug.Stack())
+		socket.WriteMessage(gws.OpcodeText, serverError)
+	}
+}
+func (c *Gateway) extractSn(payload []byte) string {
 	key := []byte(`"sn":"`)
 	i := bytes.Index(payload, key)
 	if i == -1 {
-		return nil
+		return ""
 	}
 	start := i + len(key)
 	end := bytes.IndexByte(payload[start:], '"')
 	if end == -1 {
-		return nil
+		return ""
 	}
-	return payload[start : start+end]
+	return string(payload[start : start+end])
 }
 
 // SetKeepAlive 从 net.Conn 中提取 TCP 连接并设置 keep-alive。
