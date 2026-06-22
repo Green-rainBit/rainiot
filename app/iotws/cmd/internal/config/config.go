@@ -9,7 +9,6 @@ import (
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
-	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
 type Config struct {

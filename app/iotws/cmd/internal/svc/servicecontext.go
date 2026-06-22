@@ -13,12 +13,13 @@ import (
 	configcli "rainiot/pkg/configcli"
 	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/devicecli"
+	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
-	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
+	"google.golang.org/grpc/resolver"
 )
 
 type ServiceContext struct {
@@ -46,10 +47,12 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		})
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
 		configcli = nacosCli
+		resolver.Register(grpc.NewBuilder(nacosCli.GetNacosClient()))
 	}
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,

@@ -20,7 +20,6 @@ import (
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
-	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
 )
 
 type NacosClient interface {
@@ -228,9 +227,9 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 		Ephemeral:   true,
 	})
 	if err != nil {
-		log.Printf("[ERROR] Deregister failed: %v\n", err)
+		log.Printf("[ERROR] Deregister failed: %v\n", serviceName, err)
 	} else {
-		log.Println("[INFO] Deregistered successfully.")
+		log.Println("[INFO] Deregistered successfully.", serviceName)
 	}
 	os.Exit(0)
 }
@@ -240,4 +239,8 @@ func (l *nacosClient) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcC
 		return
 	}
 	rpcClientConf.Target = l.config.BuildConfigUrl(serviceName)
+}
+
+func (l *nacosClient) GetNacosClient() naming_client.INamingClient {
+	return l.namingCli
 }

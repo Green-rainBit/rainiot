@@ -7,10 +7,7 @@ import (
 	"rainiot/pkg/devicecli/pb"
 
 	"github.com/zeromicro/go-zero/zrpc"
-	_ "github.com/zeromicro/zero-contrib/zrpc/registry/nacos"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -23,25 +20,15 @@ type deviceGrpcCli struct {
 }
 
 const (
-	defaultDeviceServiceName = "iotdevice_grpc"
+	defaultDeviceServiceName = "iotdevice.grpc"
 	defaultRetryCount        = 3
 	defaultRetryInterval     = 1 * time.Second
 )
 
 func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf, fn func(devServiceName string, zrpcConf *zrpc.RpcClientConf)) *deviceGrpcCli {
 	fn(defaultDeviceServiceName, &zrpcConf)
-	// zrpcConf = zrpc.RpcClientConf{
-	// 	Endpoints: []string{"127.0.0.1:9090"},
-	// }
-	println(zrpcConf.Target)
-	conn, err := zrpc.NewClientWithTarget(
-		"nacos://iot:root@192.168.9.21:8848/iotdevice_grpc?namespaceid=iot&group=DEFAULT_GROUP",
-		zrpc.WithDialOption(grpc.WithTransportCredentials(insecure.NewCredentials())),
-	)
-	if err != nil {
-		panic(err)
-	}
-	// conn := zrpc.MustNewClient(zrpcConf)
+
+	conn := zrpc.MustNewClient(zrpcConf)
 	return &deviceGrpcCli{
 		client:        pb.NewIotdeviceClient(conn.Conn()),
 		serviceName:   serviceName,
