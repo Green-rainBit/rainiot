@@ -4,9 +4,15 @@
   "Port": 8888,
   "Log": {
     "Mode": "file",
-    "Path": "logs/iotdevice-api"
+    "Path": "logs/iotdevice-api",
+    "Loki": {
+      "Enable": true,
+      "Mode": "direct",
+      "Url": "http://localhost:3100",
+      "SourceName": "iotdevice",
+      "JobName": "rainiot"
+    }
   },
-  "DriverName": "",
   "DataSource": "",
   "CacheRedis": {
     "type": "cluster",
@@ -18,8 +24,8 @@
     "ListenOn": "0.0.0.0:9090"
   },
   "Nats": {
-    "Urls": [],
-    "Subject": "",
+    "Urls": ["nats://localhost:14222"],
+    "Subject": "iotdevice",
     "JetStream": false
   }
 }

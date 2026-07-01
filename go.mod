@@ -3,7 +3,7 @@ module rainiot
 go 1.25.5
 
 require (
-	github.com/afiskon/promtail-client v0.0.0-20190305142237-506f3f921e9c
+	github.com/gosthell/promtail v0.0.0-20250603180920-0d7deb6f6ad9
 	github.com/hibiken/asynq v0.26.0
 	github.com/lib/pq v1.10.9
 	github.com/lxzan/gws v1.8.9
@@ -63,7 +63,6 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect

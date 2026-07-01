@@ -1,21 +1,19 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package main
 
 import (
 	"context"
 	"flag"
+	"log"
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/handler"
 	"rainiot/app/iotws/cmd/internal/logic"
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/openconfig"
+	plog "rainiot/pkg/log"
 
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
-	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -31,6 +29,15 @@ func main() {
 	var nacosconfig openconfig.NacosConfig
 	conf.MustLoad(*configNacosFile, &nacosconfig)
 
+	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
+	logWriter, err := plog.Setup(c.Log, c.Nats.Urls)
+	if err != nil {
+		log.Fatalf("log setup: %v", err)
+	}
+	if logWriter != nil {
+		defer logWriter.Close()
+	}
+
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
@@ -41,11 +48,9 @@ func main() {
 
 	handler.RegisterHandlers(server, ctx)
 
-	cron := cron.New(cron.WithSeconds())
-	handler.RegisterCron(cron, ctx)
-	cron.Start()
+	cr := cron.New(cron.WithSeconds())
+	handler.RegisterCron(cr, ctx)
+	cr.Start()
 
-	logx.SetWriter(ctx.Logloki)
-	logx.Info("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
 }

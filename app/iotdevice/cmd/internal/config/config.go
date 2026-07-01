@@ -1,10 +1,8 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package config
 
 import (
 	"rainiot/pkg/devicecli/nats"
+	plog "rainiot/pkg/log"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -17,6 +15,6 @@ type Config struct {
 	DriverName string
 	DataSource string
 	CacheRedis redis.RedisConf
-	// Nats NATS 服务端订阅配置，用于消费 NATS 消息。
-	Nats nats.NatsConf `json:",optional"`
+	Nats       nats.NatsConf `json:",optional"`
+	Log        plog.LogConf  `json:",optional"`
 }

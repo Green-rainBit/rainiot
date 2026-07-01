@@ -1,6 +1,3 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package main
 
 import (
@@ -16,6 +13,7 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/pkg/devicecli/grpc/pb"
+	plog "rainiot/pkg/log"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/service"
@@ -42,12 +40,20 @@ func main() {
 	var nacosconfig openconfig.NacosConfig
 	conf.MustLoad(*configNacosFile, &nacosconfig)
 
+	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
+	logWriter, err := plog.Setup(c.Log, c.Nats.Urls)
+	if err != nil {
+		log.Fatalf("log setup: %v", err)
+	}
+	if logWriter != nil {
+		defer logWriter.Close()
+	}
+
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c, nacosconfig)
 
-	// 如果配置了 NATS，启动消息消费者并注入业务处理回调
 	if len(c.Nats.Urls) > 0 {
 		natsConsumer, err := svc.NewNatsConsumer(c.Nats, func(msg *natsio.Msg) {
 			handleNatsMessage(msg, ctx)
@@ -63,35 +69,29 @@ func main() {
 
 	s := zrpc.MustNewServer(c.Rpc, func(grpcServer *grpc.Server) {
 		pb.RegisterIotdeviceServer(grpcServer, servergrpc.NewIotdeviceServer(ctx))
-
 		if c.Rpc.Mode == service.DevMode || c.Rpc.Mode == service.TestMode {
 			reflection.Register(grpcServer)
 		}
 	})
 	defer s.Stop()
-	go func() {
-		s.Start()
-	}()
+	go func() { s.Start() }()
+
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
 }
 
-// handleNatsMessage 处理 NATS 收到的消息，路由到 DeviceConnect 业务逻辑。
 func handleNatsMessage(msg *natsio.Msg, svcCtx *svc.ServiceContext) {
 	req := &pb.DeviceConnectReq{}
 	if err := protojson.Unmarshal(msg.Data, req); err != nil {
 		log.Printf("[NATS] failed to unmarshal message: %v", err)
 		return
 	}
-
-	// 从 NATS 头部提取 ConnId 和 ServiceName
 	if connId := msg.Header.Get("ConnId"); connId != "" {
 		req.ConnId = connId
 	}
 	if serviceName := msg.Header.Get("ServiceName"); serviceName != "" {
 		req.ServiceName = serviceName
 	}
-
 	ctx := context.Background()
 	l := logic.NewDeviceConnectLogic(ctx, svcCtx)
 	resp, err := l.DeviceConnect(req).Iotdevice(req)

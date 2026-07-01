@@ -1,112 +1,83 @@
+// Package logloki 实现 go-zero logx.Writer 接口，将日志推送 Grafana Loki。
+// 底层使用 gosthell/promtail 库 — 零外部依赖，JSON v1 API + 批量推送。
 package logloki
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
-	"github.com/afiskon/promtail-client/promtail"
+	"github.com/gosthell/promtail"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-var loki promtail.Client
-
-type Lokiconfig struct {
-	Url        string            `json:",optional"`
-	SourceName string            `json:",optional"`
-	JobName    string            `json:",optional"`
-	SendLevel  promtail.LogLevel `json:",optional"`
-	PrintLevel promtail.LogLevel `json:",optional"`
+// LokiConf Loki 日志配置。
+type LokiConf struct {
+	Enable      bool   `json:",optional"`
+	Mode        string `json:",optional,default=direct"`
+	Url         string `json:",optional"`
+	SourceName  string `json:",optional"`
+	JobName     string `json:",optional"`
+	BatchWait   int    `json:",optional,default=5"`
+	BatchSize   int    `json:",optional,default=10000"`
+	NatsSubject string `json:",optional,default=rainiot.logs"`
+	PrintLevel  string `json:",optional,default=info"`
+	SendLevel   string `json:",optional,default=info"`
 }
 
-func register(url, source_name, job_name string, sendLevel, PrintLevel promtail.LogLevel) promtail.Client {
-
-	labels := "{source=\"" + source_name + "\",job=\"" + job_name + "\"}"
-	conf := promtail.ClientConfig{
-		PushURL:            url + "/api/prom/push",
-		Labels:             labels,
-		BatchWait:          5 * time.Second,
-		BatchEntriesNumber: 10000,
-		SendLevel:          sendLevel,
-		PrintLevel:         PrintLevel,
-	}
-
-	loki, err := promtail.NewClientProto(conf)
-	if err != nil {
-		log.Printf("promtail.NewClient: %s\n", err)
-		os.Exit(1)
-	}
-	loki.Infof("loki up sucessfully!")
-	return loki
-}
-
+// LogWrite 实现 logx.Writer 接口。
 type LogWrite struct {
-	// 注册loki
-	loki promtail.Client
+	client promtail.Client
 }
 
-// NewLogWrite 创建日志写入器
-// lokiUrl 地址
-// sourceName 源名称
-// jobName 任务名称
-// sendLevel 发送级别
-// PrintLevel 打印级别
-func NewLogWrite(lokiUrl, sourceName, jobName string, sendLevel, PrintLevel promtail.LogLevel) *LogWrite {
-	return &LogWrite{
-		loki: register(lokiUrl, sourceName, jobName, sendLevel, PrintLevel),
+// NewLogWrite 根据配置创建 Loki 日志写入器。
+func NewLogWrite(cfg LokiConf) (*LogWrite, error) {
+	batchWait := time.Duration(cfg.BatchWait) * time.Second
+	if batchWait <= 0 {
+		batchWait = 5 * time.Second
 	}
-}
-
-func (l *LogWrite) Alert(v any) {
-	l.loki.Infof("err: %v", v)
-}
-
-func (l *LogWrite) Close() error {
-	l.loki.Shutdown()
-	return nil
-}
-
-func (l *LogWrite) Debug(v any, fields ...logx.LogField) {
-	if len(fields) > 0 {
-		l.loki.Debugf("err: %v, file:%s", v, fields[0].Value)
-	} else {
-		l.loki.Debugf("err: %v", v)
+	batchSize := cfg.BatchSize
+	if batchSize <= 0 {
+		batchSize = 10000
 	}
-}
 
-func (l *LogWrite) Error(v any, fields ...logx.LogField) {
-
-	if len(fields) > 0 {
-		l.loki.Errorf("err: %v, file:%s", v, fields[0].Value)
-	} else {
-		l.loki.Errorf("err: %v", v)
+	client, err := promtail.NewJSONv1Client(cfg.Url, map[string]string{
+		"source": cfg.SourceName,
+		"job":    cfg.JobName,
+	},
+		promtail.WithSendBatchSize(uint(batchSize)),
+		promtail.WithSendBatchTimeout(batchWait),
+		promtail.WithErrorCallback(func(err error) {
+			fmt.Fprintf(os.Stderr, "[logloki] push error: %v\n", err)
+		}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("logloki: %w", err)
 	}
+
+	client.Infof("loki writer ready: source=%s job=%s", cfg.SourceName, cfg.JobName)
+	return &LogWrite{client: client}, nil
 }
 
-func (l *LogWrite) Info(v any, fields ...logx.LogField) {
-	if len(fields) > 0 {
-		l.loki.Infof("info: %v, file:%s", v, fields[0].Value)
-	} else {
-		l.loki.Infof("info: %v", v)
+// ---- logx.Writer 实现 ----
+
+func (l *LogWrite) Alert(v any)                              { l.client.Errorf("alert: %v", v) }
+func (l *LogWrite) Close() error                             { l.client.Close(); return nil }
+func (l *LogWrite) Severe(v any)                             { l.client.Errorf("severe: %v", v) }
+func (l *LogWrite) Stack(v any)                              { l.client.Infof("stack: %v", v) }
+func (l *LogWrite) Stat(v any, _ ...logx.LogField)           { l.client.Infof("stat: %v", v) }
+func (l *LogWrite) Debug(v any, f ...logx.LogField)          { l.client.Debugf("debug: %v%s", v, ff(f)) }
+func (l *LogWrite) Error(v any, f ...logx.LogField)          { l.client.Errorf("error: %v%s", v, ff(f)) }
+func (l *LogWrite) Info(v any, f ...logx.LogField)           { l.client.Infof("info: %v%s", v, ff(f)) }
+func (l *LogWrite) Slow(v any, f ...logx.LogField)           { l.client.Warnf("slow: %v%s", v, ff(f)) }
+
+func ff(fields []logx.LogField) string {
+	if len(fields) == 0 {
+		return ""
 	}
-}
-
-func (l *LogWrite) Severe(v any) {
-	l.loki.Errorf("err: %v", v)
-}
-
-func (l LogWrite) Slow(v any, fields ...logx.LogField) {
-	if len(fields) > 0 {
-		l.loki.Warnf("err: %v, file:%s", v, fields[0].Value)
-	} else {
-		l.loki.Warnf("err: %v", v)
+	s := ""
+	for _, f := range fields {
+		s += fmt.Sprintf(" %s=%v", f.Key, f.Value)
 	}
-}
-
-func (l *LogWrite) Stack(v any) {
-	l.loki.Infof("err: %v", v)
-}
-
-func (l *LogWrite) Stat(v any, fields ...logx.LogField) {
-	l.loki.Infof("err: %v", v)
+	return s
 }

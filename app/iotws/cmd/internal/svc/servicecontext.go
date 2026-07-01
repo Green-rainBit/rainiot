@@ -1,6 +1,3 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package svc
 
 import (
@@ -15,7 +12,6 @@ import (
 	"rainiot/pkg/devicecli"
 	"rainiot/pkg/devicecli/grpc/instances"
 	"rainiot/pkg/devicecli/grpc/rpcn"
-	"rainiot/pkg/log/logloki"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
@@ -29,7 +25,6 @@ type ServiceContext struct {
 	Redis      *redis.ClusterClient
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
-	Logloki    *logloki.LogWrite
 	Upgrader   *gws.Upgrader
 	gateway    *ws.Gateway
 }
@@ -52,12 +47,9 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 			log.Fatalf("init nacos config err: %v", err)
 		}
 		json.Unmarshal([]byte(data), c)
-		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
+		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 		configcli = nacosCli
 	}
-	// 根据 Rpc.Model 选择 gRPC 服务发现策略：
-	//   "nacos"     → nacos Subscribe 推送模式，实时感知实例上下线
-	//   "instances" → 定时轮询 DeviceServerMap（10s），适用于无 Nacos 环境
 	if nacosCli != nil && c.Rpc.Model == "nacos" {
 		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
 		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
@@ -71,9 +63,6 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
-	// 根据 Rpc.Model 选择传输协议：
-	//   "nats" → NATS 发布，无需 gRPC resolver
-	//   其他   → gRPC（可配合 nacos/instances resolver）
 	transportModel := "grpc"
 	if c.Rpc.Model == "nats" {
 		transportModel = "nats"
@@ -84,11 +73,8 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		Redis:      client,
 		Connection: connection,
 		DeviceCli:  devicecli.NewDeviceCli(transportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats),
-		Logloki:    logloki.NewLogWrite(c.Loki.Url, c.Loki.SourceName, c.Loki.JobName, c.Loki.SendLevel, c.Loki.PrintLevel),
 		gateway:    gateway,
-
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
-			// ParallelEnabled:   true,                                 // 开启并行消息处理
 			Recovery: func(logger gws.Logger) {
 				func() {
 					if r := recover(); r != nil {
@@ -96,17 +82,16 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 					}
 					return
 				}()
-			}, // 开启异常恢复
-			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
+			},
 			NewSession: func() gws.SessionStorage {
 				return gws.NewConcurrentMap[string, any](1)
 			},
-			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存
-			WriteBufferSize:     512,                                   // 写缓冲区同样降低
-			ParallelEnabled:     false,                                 // 1000 QPS 完全不需要并行处理，可避免 goroutine 数量过多
-			PermessageDeflate:   gws.PermessageDeflate{Enabled: false}, // 开启压缩
-			CheckUtf8Enabled:    false,                                 // 如果消息确定是UTF-8或二进制，可关闭校验以节省CPU
-			ReadMaxPayloadSize:  4096,                                  // 限制最大消息体，防止恶意大包攻击
+			ReadBufferSize:      512,
+			WriteBufferSize:     512,
+			ParallelEnabled:     false,
+			PermessageDeflate:   gws.PermessageDeflate{Enabled: false},
+			CheckUtf8Enabled:    false,
+			ReadMaxPayloadSize:  4096,
 			WriteMaxPayloadSize: 4096,
 		}),
 	}
