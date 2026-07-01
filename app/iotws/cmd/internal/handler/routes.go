@@ -8,6 +8,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/middleware"
 	"rainiot/app/iotws/cmd/internal/svc"
+	pkgmw "rainiot/pkg/middleware"
 
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -23,7 +24,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/notice",
-				Handler: IotNoticeHandler(serverCtx),
+				Handler: pkgmw.RequestBodyLog(IotNoticeHandler(serverCtx)),
 			},
 		},
 	)

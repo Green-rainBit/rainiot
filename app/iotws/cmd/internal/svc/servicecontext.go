@@ -50,6 +50,7 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 		configcli = nacosCli
 	}
+
 	if nacosCli != nil && c.Rpc.Model == "nacos" {
 		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
 		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
@@ -59,20 +60,16 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		}))
 		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
 	}
+
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
-
-	transportModel := "grpc"
-	if c.Rpc.Model == "nats" {
-		transportModel = "nats"
-	}
 
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  devicecli.NewDeviceCli(transportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats),
+		DeviceCli:  devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats),
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			Recovery: func(logger gws.Logger) {

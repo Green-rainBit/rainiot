@@ -4,14 +4,14 @@
   "Port": 8888,
   "Log": {
     "Mode": "file",
-    "Path": "logs/iotws-api",
-    "Loki": {
-      "Enable": true,
-      "Mode": "direct",
-      "Url": "http://localhost:3100",
-      "SourceName": "iotws",
-      "JobName": "rainiot"
-    }
+    "Path": "logs/iotws-api"
+  },
+  "Loki": {
+    "Enable": true,
+    "Mode": "direct",
+    "Url": "http://localhost:3100",
+    "SourceName": "rainiot",
+    "JobName": "iotws"
   },
   "CacheRedis": {
     "type": "cluster",
@@ -23,7 +23,9 @@
   },
   "DeviceServerMap": {},
   "Nats": {
-    "Urls": ["nats://localhost:14222"],
+    "Urls": [
+      "nats://localhost:14222"
+    ],
     "Subject": "iotws",
     "JetStream": false
   },

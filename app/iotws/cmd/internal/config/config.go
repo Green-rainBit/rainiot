@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"rainiot/pkg/devicecli/nats"
-	plog "rainiot/pkg/log"
+	"rainiot/pkg/log/logloki"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -19,8 +19,9 @@ type Config struct {
 	} `json:",optional"`
 	CacheRedis      redis.RedisConf
 	DeviceServerMap sync.Map
-	Nats            nats.NatsConf `json:",optional"`
-	Log             plog.LogConf  `json:",optional"`
+	Nats            nats.NatsConf    `json:",optional"`
+	Loki            logloki.LokiConf `json:",optional"`
+	TransportModel  string           `json:",optional"`
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {

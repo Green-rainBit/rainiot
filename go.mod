@@ -3,7 +3,6 @@ module rainiot
 go 1.25.5
 
 require (
-	github.com/gosthell/promtail v0.0.0-20250603180920-0d7deb6f6ad9
 	github.com/hibiken/asynq v0.26.0
 	github.com/lib/pq v1.10.9
 	github.com/lxzan/gws v1.8.9

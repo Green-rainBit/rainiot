@@ -41,7 +41,7 @@ func main() {
 	conf.MustLoad(*configNacosFile, &nacosconfig)
 
 	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
-	logWriter, err := plog.Setup(c.Log, c.Nats.Urls)
+	logWriter, err := plog.Setup(c.Log, c.Loki, c.Nats.Urls)
 	if err != nil {
 		log.Fatalf("log setup: %v", err)
 	}

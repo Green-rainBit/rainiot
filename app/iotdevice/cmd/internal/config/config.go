@@ -2,7 +2,7 @@ package config
 
 import (
 	"rainiot/pkg/devicecli/nats"
-	plog "rainiot/pkg/log"
+	"rainiot/pkg/log/logloki"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -15,6 +15,6 @@ type Config struct {
 	DriverName string
 	DataSource string
 	CacheRedis redis.RedisConf
-	Nats       nats.NatsConf `json:",optional"`
-	Log        plog.LogConf  `json:",optional"`
+	Nats       nats.NatsConf    `json:",optional"`
+	Loki       logloki.LokiConf `json:",optional"`
 }

@@ -5,6 +5,7 @@ import (
 	"log"
 
 	conf_cli "rainiot/pkg/configcli"
+	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/devicecli/httpc"
 	"rainiot/pkg/devicecli/nats"
 
@@ -26,19 +27,24 @@ type deviceCli struct {
 func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, natsConf *nats.NatsConf) DeviceCli {
 	d := &deviceCli{
 		model: model,
-		http:  httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
-		//	zrpc:  grpc.NewDeviceCli(serviceName, zrpcConf),
 	}
-
-	if natsConf != nil {
-		natsCli, err := nats.NewDeviceCli(serviceName, *natsConf)
-		if err != nil {
-			if model == "nats" {
-				log.Fatalf("init nats client err: %v", err)
+	if model == "grpc" {
+		d.zrpc = grpc.NewDeviceCli(serviceName, zrpcConf)
+	}
+	if model == "http" {
+		d.zrpc = httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances)
+	}
+	if model == "nats" {
+		if natsConf != nil {
+			natsCli, err := nats.NewDeviceCli(serviceName, *natsConf)
+			if err != nil {
+				if model == "nats" {
+					log.Fatalf("init nats client err: %v", err)
+				}
+				log.Printf("init nats client err (fallback to default): %v", err)
+			} else {
+				d.nats = natsCli
 			}
-			log.Printf("init nats client err (fallback to default): %v", err)
-		} else {
-			d.nats = natsCli
 		}
 	}
 

@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/gosthell/promtail"
+	"rainiot/pkg/log/promtail"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 

@@ -10,25 +10,22 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-// Setup 根据 LogConf 配置日志系统。
-// - Loki 未启用时：使用 go-zero 默认文件日志
-// - direct 模式：日志同时写文件 + 直推 Loki
-// - bridge 模式：日志同时写文件 + 发布到 NATS 主题
-// - dual 模式：日志同时写文件 + 直推 Loki（与 direct 相同）
-//
-// natsUrls 和 natsSubject 仅在 bridge 模式使用。
-func Setup(c LogConf, natsUrls []string) (logx.Writer, error) {
-	logx.MustSetup(c.LogConf)
+// Setup 根据配置设置日志系统。
+// logConf: go-zero 文件日志配置（来自 rest.RestConf.Log 或手动 load）
+// lokiConf: Loki 日志配置（顶级 Loki 字段）
+// natsUrls: NATS 地址，仅 bridge 模式使用
+func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (logx.Writer, error) {
+	logx.MustSetup(logConf)
 
-	if !c.Loki.Enable {
+	if !lokiConf.Enable {
 		return nil, nil
 	}
 
-	switch c.Loki.Mode {
+	switch lokiConf.Mode {
 	case LokiModeBridge:
-		return setupBridge(c.Loki, natsUrls)
-	default: // direct / dual 均直推 Loki
-		return setupDirect(c.Loki)
+		return setupBridge(lokiConf, natsUrls)
+	default:
+		return setupDirect(lokiConf)
 	}
 }
 

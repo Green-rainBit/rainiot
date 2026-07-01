@@ -4,14 +4,14 @@
   "Port": 8888,
   "Log": {
     "Mode": "file",
-    "Path": "logs/iotcron",
-    "Loki": {
-      "Enable": true,
-      "Mode": "direct",
-      "Url": "http://localhost:3100",
-      "SourceName": "iotcron",
-      "JobName": "rainiot"
-    }
+    "Path": "logs/iotcron"
+  },
+  "Loki": {
+    "Enable": true,
+    "Mode": "direct",
+    "Url": "http://localhost:3100",
+    "SourceName": "iotcron",
+    "JobName": "rainiot"
   },
   "CacheRedis": {
     "type": "cluster",

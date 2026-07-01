@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
+	"rainiot/pkg/middleware"
 
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -17,7 +18,7 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/device/connect",
-				Handler: IotdeviceHandler(serverCtx),
+				Handler: middleware.RequestBodyLog(IotdeviceHandler(serverCtx)),
 			},
 		},
 	)
