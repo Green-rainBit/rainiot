@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"runtime/debug"
 	"time"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -26,6 +26,7 @@ var serverError = []byte("server error")
 
 func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
 	return &Gateway{
+		Logger:     logx.WithContext(context.Background()),
 		connection: conn,
 		redis:      redis,
 		serverName: serverName,
@@ -33,6 +34,7 @@ func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient)
 }
 
 type Gateway struct {
+	logx.Logger
 	serverName string
 	Fn         func(connId string, message []byte) ([]byte, bool, error)
 	connection Connection
@@ -132,10 +134,32 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 
 func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
 	if r := recover(); r != nil {
-		log.Printf("[Recover] %s panic: %v\n%s", ctx, r, debug.Stack())
+		c.Logger.Errorf("[Recover] %s panic: %v, stack: %s", ctx, r, debug.Stack())
 		socket.WriteMessage(gws.OpcodeText, serverError)
 	}
 }
+
+// trimStack 将 []byte 格式的 stack trace 中 \n\t 转为 "; ", 避免多行拆分乱码。
+// func trimStack(stack []byte) string {
+// 	s := string(stack)
+// 	// 去掉末尾换行
+// 	for len(s) > 0 && (s[len(s)-1] == '\n' || s[len(s)-1] == '\t') {
+// 		s = s[:len(s)-1]
+// 	}
+// 	// \n\t → "; " 保持单行格式
+// 	b := make([]byte, 0, len(s))
+// 	for i := 0; i < len(s); i++ {
+// 		if s[i] == '\n' {
+// 			b = append(b, ';', ' ')
+// 			if i+1 < len(s) && s[i+1] == '\t' {
+// 				i++
+// 			}
+// 		} else {
+// 			b = append(b, s[i])
+// 		}
+// 	}
+// 	return string(b)
+// }
 func (c *Gateway) extractSn(payload []byte) string {
 	key := []byte(`"sn":"`)
 	i := bytes.Index(payload, key)

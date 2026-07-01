@@ -14,6 +14,8 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.Use(middleware.Middleware)
+	server.Use(pkgmw.RequestBodyLog)
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -24,9 +26,8 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 			{
 				Method:  http.MethodPost,
 				Path:    "/notice",
-				Handler: pkgmw.RequestBodyLog(IotNoticeHandler(serverCtx)),
+				Handler: IotNoticeHandler(serverCtx),
 			},
 		},
 	)
-	server.Use(middleware.Middleware)
 }

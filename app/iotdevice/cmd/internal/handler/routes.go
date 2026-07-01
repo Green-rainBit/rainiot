@@ -13,12 +13,13 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.Use(middleware.RequestBodyLog)
 	server.AddRoutes(
 		[]rest.Route{
 			{
 				Method:  http.MethodPost,
 				Path:    "/device/connect",
-				Handler: middleware.RequestBodyLog(IotdeviceHandler(serverCtx)),
+				Handler: IotdeviceHandler(serverCtx),
 			},
 		},
 	)

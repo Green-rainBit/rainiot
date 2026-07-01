@@ -9,8 +9,8 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-// RequestBodyLog 记录请求体内容的中间件。
-// 将 body 读取后回填，保证后续 handler 仍能读取。
+// RequestBodyLog 记录请求体内容到 logx（共享 go-zero 的 trace/span 上下文）。
+// 读取 body 后回填，后续中间件和 handler 仍能正常读取。
 func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Body == nil {
@@ -21,17 +21,14 @@ func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 		body, err := io.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
-			logx.WithContext(r.Context()).Errorf("read request body: %v", err)
 			next(w, r)
 			return
 		}
 
-		// 回填 body 供后续读取
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
 
-		logger := logx.WithContext(r.Context())
 		if len(body) > 0 {
-			logger.Infof("req: %s", string(body))
+			logx.WithContext(r.Context()).Infof("body: %s", string(body))
 		}
 
 		next(w, r)
