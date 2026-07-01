@@ -2,13 +2,16 @@ package devicecli
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
+	"rainiot/pkg/alarm"
 	conf_cli "rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/devicecli/httpc"
 	"rainiot/pkg/devicecli/nats"
+	"rainiot/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -17,6 +20,7 @@ import (
 // DeviceCli 设备推送客户端接口。
 type DeviceCli interface {
 	Push(ctx context.Context, connId string, message []byte) ([]byte, error)
+	Information() string
 }
 
 // Reloadable 支持热重载模式的客户端。
@@ -71,14 +75,16 @@ type deviceCli struct {
 	confCli     conf_cli.ConfigCli
 	zrpcConf    zrpc.RpcClientConf
 	natsConf    *nats.NatsConf
+	alarmSender alarm.Sender
 }
 
-func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, natsConf *nats.NatsConf) *deviceCli {
+func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, natsConf *nats.NatsConf, alarmSender alarm.Sender) *deviceCli {
 	d := &deviceCli{
 		serviceName: serviceName,
 		confCli:     confCli,
 		zrpcConf:    zrpcConf,
 		natsConf:    natsConf,
+		alarmSender: alarmSender,
 	}
 	d.initLocked(ParseMode(model))
 	return d
@@ -234,7 +240,20 @@ func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]
 			return resp, nil
 		}
 		lastErr = err
-		logx.WithContext(ctx).Error("[deviceCli] client %T push failed, fallback next: %v", cli, err)
+		logx.WithContext(ctx).Error("connId: ", connId, "[deviceCli] client ", cli.Information(), " push failed, fallback next: ", err.Error())
+		util.Go(func() {
+			d.alarmSender.Send(ctx, err.Error())
+		})
 	}
+	util.Go(func() {
+		d.alarmSender.Send(ctx, "connId: "+connId+" [deviceCli] all clients push failed: "+lastErr.Error()+d.Information())
+	})
+
 	return nil, lastErr
+}
+
+func (d *deviceCli) Information() string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return fmt.Sprintf("mode: %v, grpc: %v, http: %v, nats: %v", d.mode, d.grpc, d.http, d.nats)
 }

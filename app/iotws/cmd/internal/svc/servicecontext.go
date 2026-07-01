@@ -7,6 +7,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
+	"rainiot/pkg/alarm"
 	configcli "rainiot/pkg/configcli"
 	"rainiot/pkg/configcli/nacos"
 	"rainiot/pkg/devicecli"
@@ -81,7 +82,7 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
-	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats)
+	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats, alarm.New(c.AlarmConfig))
 	reloadableCli = devCli
 
 	return &ServiceContext{

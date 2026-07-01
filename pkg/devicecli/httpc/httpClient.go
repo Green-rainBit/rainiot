@@ -107,3 +107,11 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 	}
 	return nil, fmt.Errorf("所有实例请求均失败")
 }
+
+func (d *deviceHttpCli) Information() string {
+	return "deviceHttpCli"
+}
+
+func (d *deviceHttpCli) Close() error {
+	return nil
+}

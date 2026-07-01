@@ -71,6 +71,10 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 	return nil, err
 }
 
+func (d *deviceGrpcCli) Information() string {
+	return "device grpc client, serviceName: " + d.serviceName
+}
+
 func isRetryable(err error) bool {
 	st, ok := status.FromError(err)
 	if !ok {
@@ -82,4 +86,8 @@ func isRetryable(err error) bool {
 	default:
 		return false
 	}
+}
+
+func (d *deviceGrpcCli) Close() error {
+	return nil
 }

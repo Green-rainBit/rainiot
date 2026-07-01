@@ -3,6 +3,7 @@ package config
 import (
 	"sync"
 
+	"rainiot/pkg/alarm"
 	"rainiot/pkg/devicecli/nats"
 	"rainiot/pkg/log/logloki"
 
@@ -22,6 +23,7 @@ type Config struct {
 	Nats            nats.NatsConf    `json:",optional"`
 	Loki            logloki.LokiConf `json:",optional"`
 	TransportModel  string           `json:",optional"`
+	AlarmConfig     alarm.Config     `json:",optional"`
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {

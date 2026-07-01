@@ -174,6 +174,10 @@ func (d *deviceNatsCli) Push(ctx context.Context, connId string, message []byte)
 	return nil, err
 }
 
+func (d *deviceNatsCli) Information() string {
+	return "NATS"
+}
+
 // Close 优雅关闭 NATS 连接。
 func (d *deviceNatsCli) Close() {
 	if d.conn != nil {
