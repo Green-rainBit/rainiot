@@ -15,6 +15,7 @@ import (
 	"rainiot/pkg/devicecli"
 	"rainiot/pkg/devicecli/grpc/instances"
 	"rainiot/pkg/devicecli/grpc/rpcn"
+	"rainiot/pkg/log/logloki"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
@@ -28,6 +29,7 @@ type ServiceContext struct {
 	Redis      *redis.ClusterClient
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
+	Logloki    *logloki.LogWrite
 	Upgrader   *gws.Upgrader
 	gateway    *ws.Gateway
 }
@@ -69,12 +71,22 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
+	// 根据 Rpc.Model 选择传输协议：
+	//   "nats" → NATS 发布，无需 gRPC resolver
+	//   其他   → gRPC（可配合 nacos/instances resolver）
+	transportModel := "grpc"
+	if c.Rpc.Model == "nats" {
+		transportModel = "nats"
+	}
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.Rpc.RpcClientConf),
+		DeviceCli:  devicecli.NewDeviceCli(transportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats),
+		Logloki:    logloki.NewLogWrite(c.Loki.Url, c.Loki.SourceName, c.Loki.JobName, c.Loki.SendLevel, c.Loki.PrintLevel),
 		gateway:    gateway,
+
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			// ParallelEnabled:   true,                                 // 开启并行消息处理
 			Recovery: func(logger gws.Logger) {

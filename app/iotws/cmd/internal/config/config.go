@@ -6,6 +6,9 @@ package config
 import (
 	"sync"
 
+	"rainiot/pkg/devicecli/nats"
+	"rainiot/pkg/log/logloki"
+
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
@@ -27,6 +30,9 @@ type Config struct {
 	// DeviceServerMap 服务实例映射，key 为服务名（如 "iotdevice_api"），value 为地址列表，配置热更新时自动刷新。
 	// 作为 "instances" 模式的数据源。
 	DeviceServerMap sync.Map
+	// Nats NATS 客户端配置，用于 "nats" 数据传输模式。
+	Nats nats.NatsConf `json:",optional"`
+	Loki logloki.Lokiconfig
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {

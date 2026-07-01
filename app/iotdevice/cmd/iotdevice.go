@@ -4,13 +4,16 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"log"
 
 	"rainiot/pkg/openconfig"
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/cmd/internal/handler"
+	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/pkg/devicecli/grpc/pb"
 
@@ -19,10 +22,12 @@ import (
 
 	servergrpc "rainiot/app/iotdevice/cmd/internal/server"
 
+	natsio "github.com/nats-io/nats.go"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var configFile = flag.String("f", "etc/iotdevice-api.json", "the config file")
@@ -41,6 +46,19 @@ func main() {
 	defer server.Stop()
 
 	ctx := svc.NewServiceContext(c, nacosconfig)
+
+	// 如果配置了 NATS，启动消息消费者并注入业务处理回调
+	if len(c.Nats.Urls) > 0 {
+		natsConsumer, err := svc.NewNatsConsumer(c.Nats, func(msg *natsio.Msg) {
+			handleNatsMessage(msg, ctx)
+		})
+		if err != nil {
+			log.Fatalf("init nats consumer err: %v", err)
+		}
+		ctx.NatsConsumer = natsConsumer
+		defer ctx.NatsConsumer.Close()
+	}
+
 	handler.RegisterHandlers(server, ctx)
 
 	s := zrpc.MustNewServer(c.Rpc, func(grpcServer *grpc.Server) {
@@ -56,4 +74,32 @@ func main() {
 	}()
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
+}
+
+// handleNatsMessage 处理 NATS 收到的消息，路由到 DeviceConnect 业务逻辑。
+func handleNatsMessage(msg *natsio.Msg, svcCtx *svc.ServiceContext) {
+	req := &pb.DeviceConnectReq{}
+	if err := protojson.Unmarshal(msg.Data, req); err != nil {
+		log.Printf("[NATS] failed to unmarshal message: %v", err)
+		return
+	}
+
+	// 从 NATS 头部提取 ConnId 和 ServiceName
+	if connId := msg.Header.Get("ConnId"); connId != "" {
+		req.ConnId = connId
+	}
+	if serviceName := msg.Header.Get("ServiceName"); serviceName != "" {
+		req.ServiceName = serviceName
+	}
+
+	ctx := context.Background()
+	l := logic.NewDeviceConnectLogic(ctx, svcCtx)
+	resp, err := l.DeviceConnect(req).Iotdevice(req)
+	if err != nil {
+		log.Printf("[NATS] handle device connect error: %v", err)
+		return
+	}
+	if resp != nil {
+		log.Printf("[NATS] device connect result: %s", resp.Message)
+	}
 }

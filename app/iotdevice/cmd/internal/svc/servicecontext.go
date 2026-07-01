@@ -19,9 +19,10 @@ import (
 )
 
 type ServiceContext struct {
-	Config      config.Config
-	DeviceModel model.DeviceModel
-	Redis       *goredis.ClusterClient
+	Config       config.Config
+	DeviceModel  model.DeviceModel
+	Redis        *goredis.ClusterClient
+	NatsConsumer *NatsConsumer
 }
 
 func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
@@ -44,9 +45,15 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		Password: c.CacheRedis.Pass,
 	})
 
-	return &ServiceContext{
+	svcCtx := &ServiceContext{
 		Config:      c,
 		DeviceModel: model.NewDeviceModel(conn),
 		Redis:       client,
 	}
+
+	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
+	// 以避免 svc → logic → svc 的循环导入。此处仅持有引用用于 defer Close。
+	// 如果配置了 NATS，将在 main.go 中初始化。
+
+	return svcCtx
 }

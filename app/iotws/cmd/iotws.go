@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/handler"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -45,6 +45,7 @@ func main() {
 	handler.RegisterCron(cron, ctx)
 	cron.Start()
 
-	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
+	logx.SetWriter(ctx.Logloki)
+	logx.Info("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()
 }

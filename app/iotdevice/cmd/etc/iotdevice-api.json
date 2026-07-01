@@ -16,5 +16,10 @@
   "Rpc": {
     "Name": "iotdevice_grpc",
     "ListenOn": "0.0.0.0:9090"
+  },
+  "Nats": {
+    "Urls": [],
+    "Subject": "",
+    "JetStream": false
   }
 }
