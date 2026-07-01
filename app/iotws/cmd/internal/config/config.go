@@ -19,18 +19,23 @@ type Config struct {
 		Model string `json:",optional"`
 	} `json:",optional"`
 	CacheRedis      redis.RedisConf
-	DeviceServerMap sync.Map
-	Nats            nats.NatsConf    `json:",optional"`
-	Loki            logloki.LokiConf `json:",optional"`
-	TransportModel  string           `json:",optional"`
-	AlarmConfig     alarm.Config     `json:",optional"`
+	DeviceServerMap map[string][]string `json:"DeviceServerMap,optional"`
+	Nats            nats.NatsConf       `json:",optional"`
+	Loki            logloki.LokiConf    `json:",optional"`
+	TransportModel  string              `json:",optional"`
+	AlarmConfig     alarm.Config        `json:",optional"`
+
+	mu sync.RWMutex
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {
-	value, ok := c.DeviceServerMap.Load(serviceName)
-	strings, ok := value.([]string)
-	if !ok {
-		return nil
-	}
-	return strings
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.DeviceServerMap[serviceName]
+}
+
+// Lock 在热更新写入前加锁，返回解锁函数
+func (c *Config) Lock() func() {
+	c.mu.Lock()
+	return c.mu.Unlock
 }

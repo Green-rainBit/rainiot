@@ -44,7 +44,9 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	var configcli configcli.ConfigCli = c
 	if nacosCli != nil {
 		data, err := nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
+			unlock := c.Lock()
 			json.Unmarshal([]byte(data), c)
+			unlock()
 			if reloadableCli != nil {
 				reloadableCli.Reload(c.TransportModel)
 			}
