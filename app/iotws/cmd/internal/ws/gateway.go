@@ -139,27 +139,6 @@ func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
 	}
 }
 
-// trimStack 将 []byte 格式的 stack trace 中 \n\t 转为 "; ", 避免多行拆分乱码。
-// func trimStack(stack []byte) string {
-// 	s := string(stack)
-// 	// 去掉末尾换行
-// 	for len(s) > 0 && (s[len(s)-1] == '\n' || s[len(s)-1] == '\t') {
-// 		s = s[:len(s)-1]
-// 	}
-// 	// \n\t → "; " 保持单行格式
-// 	b := make([]byte, 0, len(s))
-// 	for i := 0; i < len(s); i++ {
-// 		if s[i] == '\n' {
-// 			b = append(b, ';', ' ')
-// 			if i+1 < len(s) && s[i+1] == '\t' {
-// 				i++
-// 			}
-// 		} else {
-// 			b = append(b, s[i])
-// 		}
-// 	}
-// 	return string(b)
-// }
 func (c *Gateway) extractSn(payload []byte) string {
 	key := []byte(`"sn":"`)
 	i := bytes.Index(payload, key)

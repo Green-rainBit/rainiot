@@ -38,10 +38,25 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	if err != nil {
 		log.Fatalf("init nacos err: %v", err)
 	}
+	var reloadableCli devicecli.Reloadable
+
 	var configcli configcli.ConfigCli = c
 	if nacosCli != nil {
 		data, err := nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
 			json.Unmarshal([]byte(data), c)
+			if reloadableCli != nil {
+				reloadableCli.Reload(c.TransportModel)
+			}
+			switch c.TransportModel {
+			case "nacos":
+				resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
+				c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
+			case "instances":
+				resolver.Register(instances.NewBuilder(func() []string {
+					return configcli.GetHealthyInstances("iotdevice.grpc")
+				}))
+				c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
+			}
 		})
 		if err != nil {
 			log.Fatalf("init nacos config err: %v", err)
@@ -49,6 +64,7 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 		json.Unmarshal([]byte(data), c)
 		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf)
 		configcli = nacosCli
+
 	}
 
 	if nacosCli != nil && c.Rpc.Model == "nacos" {
@@ -65,11 +81,14 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
+	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats)
+	reloadableCli = devCli
+
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats),
+		DeviceCli:  devCli,
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			Recovery: func(logger gws.Logger) {

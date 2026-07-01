@@ -21,8 +21,7 @@ type LokiConf struct {
 	BatchWait   int    `json:",optional,default=5"`
 	BatchSize   int    `json:",optional,default=10000"`
 	NatsSubject string `json:",optional,default=rainiot.logs"`
-	PrintLevel  string `json:",optional,default=info"`
-	SendLevel   string `json:",optional,default=info"`
+	Console     bool   `json:",optional"`
 }
 
 // LogWrite 实现 logx.Writer 接口。
