@@ -5,13 +5,17 @@ import (
 	"strings"
 )
 
+type OpenConfig struct {
+	ConfigModel   string `json:"configModel,optional"`
+	RegistryModel string `json:"registryModel,optional"`
+
+	ConfigConfig   NacosConfig `json:"configConfig,optional"`
+	RegistryConfig NacosConfig `json:"registryConfig,optional"`
+}
+
 type NacosConfig struct {
-	// NacosSeverConfig []constant.ServerConfig
-	// NacosAppClientConfig constant.ClientConfig
 	IpAddress []string `json:"ipAddress,optional"`
 	Port      uint64   `json:"port,optional"`
-
-	Model string `json:"model,optional"`
 
 	NamespaceId string `json:"namespaceId,optional"`
 	Username    string `json:"username,optional"`
