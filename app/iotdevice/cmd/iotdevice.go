@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"rainiot/pkg/openconfig"
+	"rainiot/pkg/util"
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/cmd/internal/handler"
@@ -74,7 +75,7 @@ func main() {
 		}
 	})
 	defer s.Stop()
-	go func() { s.Start() }()
+	util.Go(func() { s.Start() })
 
 	fmt.Printf("Starting server at %s:%d...\n", c.Host, c.Port)
 	server.Start()

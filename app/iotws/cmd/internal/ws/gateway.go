@@ -101,6 +101,7 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 		sn := c.extractSn(by)
 		if sn != "" {
 			socket.Session().Store("connId", sn)
+			c.connection.Storage(sn, socket)
 		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:

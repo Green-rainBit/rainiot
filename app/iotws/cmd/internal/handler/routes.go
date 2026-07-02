@@ -6,7 +6,6 @@ package handler
 import (
 	"net/http"
 
-	"rainiot/app/iotws/cmd/internal/middleware"
 	"rainiot/app/iotws/cmd/internal/svc"
 	pkgmw "rainiot/pkg/middleware"
 
@@ -14,7 +13,7 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	server.Use(middleware.Middleware)
+	server.Use(pkgmw.Middleware)
 	server.Use(pkgmw.RequestBodyLog)
 	server.AddRoutes(
 		[]rest.Route{

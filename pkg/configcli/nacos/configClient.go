@@ -74,7 +74,7 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 		confCli:   configClient,
 		namingCli: namingClient,
 	}
-	go nc.autoRefresh()
+	util.Go(nc.autoRefresh)
 
 	return nc, nil
 

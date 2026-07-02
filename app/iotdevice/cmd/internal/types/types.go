@@ -79,6 +79,7 @@ func (m *Request) Reset() {
 }
 
 type Response struct {
+	Trace   string `json:"trace"`
 	Cmd     string `json:"cmd"`
 	ConnId  string `json:"connId"`
 	Message string `json:"message"`
