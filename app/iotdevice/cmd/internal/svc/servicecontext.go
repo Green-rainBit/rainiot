@@ -23,6 +23,7 @@ type ServiceContext struct {
 	DeviceModel  model.DeviceModel
 	Redis        *goredis.ClusterClient
 	NatsConsumer *NatsConsumer
+	NacosCli     nacos.NacosClient
 }
 
 func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
@@ -49,6 +50,7 @@ func NewServiceContext(c config.Config, nacosconfig openconfig.NacosConfig) *Ser
 		Config:      c,
 		DeviceModel: model.NewDeviceModel(conn),
 		Redis:       client,
+		NacosCli:    nacosCli,
 	}
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，

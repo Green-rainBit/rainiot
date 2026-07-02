@@ -3,14 +3,13 @@
 
 package types
 
-import "rainiot/pkg/wscli"
-
 type Ntice struct {
-	wscli.Request
+	Id   string `json:"id"`
+	Data []byte `json:"data"`
 }
 
 type Request struct {
-	Sn string `json:"sn"`
+	ConnId string `path:"connId,options=you|me"`
 }
 
 type Response struct {

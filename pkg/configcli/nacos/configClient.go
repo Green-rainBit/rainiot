@@ -23,6 +23,14 @@ import (
 )
 
 type NacosClient interface {
+	InitNacosConfig(dataId, group string, onChange func(namespace, group, dataId, data string)) (string, error)
+	InitNacosRegisterInstanceGrpc(config openconfig.NacosConfig, c zrpc.RpcServerConf) error
+	InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error
+	HasSeverCli(serviceName string) (bool, error)
+	GetSeverCli(serviceName string) error
+	GetHealthyInstances(serviceName string) []string
+	SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf)
+	GetNacosClient() naming_client.INamingClient
 }
 
 type nacosClient struct {
@@ -32,7 +40,7 @@ type nacosClient struct {
 	instances sync.Map
 }
 
-func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
+func NewNacosClient(config openconfig.NacosConfig) (NacosClient, error) {
 	if config.Model != "nacos" || len(config.IpAddress) == 0 {
 		return nil, nil
 	}
@@ -161,8 +169,26 @@ func (l *nacosClient) groupOrDefault(groupName string) string {
 	return groupName
 }
 
-func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
-	groupName = l.groupOrDefault(groupName)
+func (l *nacosClient) HasSeverCli(serviceName string) (bool, error) {
+	groupName := l.groupOrDefault(l.config.Group)
+	log.Printf("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
+	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
+		ServiceName: serviceName,
+		GroupName:   groupName,
+		HealthyOnly: true,
+	})
+	if err != nil {
+		log.Printf("[Nacos] SelectInstances error: service=%s group=%s err=%v", serviceName, groupName, err)
+		return false, err
+	}
+	if len(instances) > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (l *nacosClient) GetSeverCli(serviceName string) error {
+	groupName := l.groupOrDefault(l.config.Group)
 	log.Printf("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
 	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
 		ServiceName: serviceName,
@@ -193,7 +219,7 @@ func (l *nacosClient) autoRefresh() {
 			if len(arr) != 2 {
 				return true
 			}
-			err := l.GetSeverCli(arr[0], arr[1]) // 忽略错误，保留旧列表
+			err := l.GetSeverCli(arr[0]) // 忽略错误，保留旧列表
 			if err != nil {
 				log.Println(err)
 			}
@@ -207,7 +233,7 @@ func (l *nacosClient) GetHealthyInstances(serviceName string) []string {
 	key := serviceName + ":" + l.config.Group
 	v, ok := l.instances.Load(key)
 	if !ok {
-		if err := l.GetSeverCli(serviceName, l.config.Group); err != nil {
+		if err := l.GetSeverCli(serviceName); err != nil {
 			log.Println(err)
 			return nil
 		}

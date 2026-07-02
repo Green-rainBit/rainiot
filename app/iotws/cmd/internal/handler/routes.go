@@ -7,14 +7,11 @@ import (
 	"net/http"
 
 	"rainiot/app/iotws/cmd/internal/svc"
-	pkgmw "rainiot/pkg/middleware"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
-	server.Use(pkgmw.Middleware)
-	server.Use(pkgmw.RequestBodyLog)
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -26,6 +23,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Method:  http.MethodPost,
 				Path:    "/notice",
 				Handler: IotNoticeHandler(serverCtx),
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/ping",
+				Handler: IotPingHandler(serverCtx),
 			},
 		},
 	)

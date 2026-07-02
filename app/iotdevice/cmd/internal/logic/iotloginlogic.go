@@ -38,8 +38,11 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		return nil, err
 	}
 	if exists == 1 {
-		l.Logger.Errorf("device already logged in")
-		return nil, errors.NewMyError(4000, "device already logged in")
+		_, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheConn(req.GetSn())).Result()
+		if err != nil {
+			return nil, err
+		}
+		//todo: 计划根据服务名称获取该服务是否存在该连接
 	}
 	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetSn())
 	if err != nil {
