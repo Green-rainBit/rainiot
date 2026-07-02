@@ -11,7 +11,6 @@ func Go(fn func()) {
 		defer func() {
 			if err := recover(); err != nil {
 				logx.WithContext(context.Background()).Error(err)
-				
 			}
 		}()
 		fn()

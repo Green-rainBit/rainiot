@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"net"
 	"runtime/debug"
@@ -43,26 +42,7 @@ type Gateway struct {
 
 func (c *Gateway) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
-	go func() {
-		timeAfter := time.After(PingInterval)
-
-		<-timeAfter
-		connId, ok := socket.Session().Load("connId")
-		if ok {
-			switch coId := connId.(type) {
-			case string:
-				if coId == "" {
-					c.ServerOnClose(socket, errors.New("timeout"))
-				} else {
-					c.connection.Storage(coId, socket)
-					c.redis.SetXX(context.Background(), cache.GetCacheConn(coId), c.serverName, cache.ConnTime)
-				}
-				SetKeepAlive(socket.NetConn())
-			default:
-
-			}
-		}
-	}()
+	SetKeepAlive(socket.NetConn())
 }
 
 func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
@@ -96,8 +76,11 @@ func (c *Gateway) OnClose(socket *gws.Conn, err error) {
 }
 
 func (c *Gateway) OnPing(socket *gws.Conn, payload []byte) {
-	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
-	_ = socket.WritePong([]byte{})
+	_, ok := socket.Session().Load("connId")
+	if ok {
+		_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+		_ = socket.WritePong([]byte{})
+	}
 }
 
 func (c *Gateway) OnPong(socket *gws.Conn, payload []byte) {
@@ -110,14 +93,15 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	connId, ok := socket.Session().Load("connId")
 	switch ok {
 	case false:
-		sn := c.extractSn(message.Bytes())
-		by, _, err := c.Fn(sn, message.Bytes())
+		by, _, err := c.Fn("", message.Bytes())
 		if err != nil {
 			defer c.ServerOnClose(socket, err)
 			return
 		}
-
-		socket.Session().Store("connId", sn)
+		sn := c.extractSn(by)
+		if sn != "" {
+			socket.Session().Store("connId", sn)
+		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:
 		by, sync, err := c.Fn(connId.(string), message.Bytes())
@@ -140,7 +124,7 @@ func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
 }
 
 func (c *Gateway) extractSn(payload []byte) string {
-	key := []byte(`"sn":"`)
+	key := []byte(`"connId":"`)
 	i := bytes.Index(payload, key)
 	if i == -1 {
 		return ""
