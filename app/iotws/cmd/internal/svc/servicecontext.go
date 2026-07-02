@@ -119,3 +119,8 @@ func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *Se
 func (s *ServiceContext) WireWsFn(fn func(connId string, message []byte) ([]byte, bool, error)) {
 	s.gateway.Fn = fn
 }
+
+// CloseWs 优雅关闭所有 WebSocket 连接,委托给 gateway。
+func (s *ServiceContext) CloseWs() {
+	s.gateway.CloseAll()
+}

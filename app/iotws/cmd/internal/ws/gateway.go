@@ -62,6 +62,21 @@ func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 	socket.NetConn().Close()
 }
 
+// CloseAll 优雅关闭所有 WebSocket 连接。
+// 进程收到关闭信号时由 shutdown listener 调用:对每个连接先发送关闭帧
+// (1001 = Going Away),让设备即时感知并重连到其他节点,再关闭底层连接。
+// WriteClose 内部为 CAS 幂等,重复调用安全;关闭会触发 OnClose 回调,
+// 由其负责清理 redis 中的 connId 缓存与连接表。
+func (c *Gateway) CloseAll() {
+	c.connection.Range(func(key, value any) bool {
+		if socket, ok := value.(*gws.Conn); ok {
+			_ = socket.WriteClose(1001, []byte("server shutting down"))
+			_ = socket.NetConn().Close()
+		}
+		return true
+	})
+}
+
 func (c *Gateway) OnClose(socket *gws.Conn, err error) {
 	connId, ok := socket.Session().Load("connId")
 	if ok {
