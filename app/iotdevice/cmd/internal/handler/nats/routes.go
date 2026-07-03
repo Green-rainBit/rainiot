@@ -5,13 +5,14 @@ import (
 	"log"
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"strings"
+	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 )
 
-const defaultIngressSubject = "raw.ingress"
+const defaultIngressSubject = "raw_ingress"
 
-// ingressSubject 返回入口主题：优先使用配置的 Nats.Subject，否则回退到 raw.ingress。
+// ingressSubject 返回入口主题：优先使用配置的 Nats.Subject，否则回退到 raw_ingress。
 func ingressSubject(serverCtx *svc.ServiceContext) string {
 	if s := strings.TrimSpace(serverCtx.Config.Nats.Subject); s != "" {
 		return s
@@ -36,9 +37,10 @@ func StartRouter(serverCtx *svc.ServiceContext) {
 	// 入口流同时捕获原始消息 (ingress) 与分发后的子命令消息 (ingress.<cmd>)。
 	// 通配符必须用 ".>"；"_>" 会被当成字面量，匹配不到任何子主题。
 	stream, err := js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
-		Name:     sanitizeName(ingress),
-		Subjects: []string{ingress, ingress + ".>"},
-		Storage:  jetstream.FileStorage,
+		Name:      sanitizeName(ingress),
+		Subjects:  []string{strings.ToLower(ingress), strings.ToLower(ingress) + ".>"},
+		Retention: jetstream.WorkQueuePolicy, // 工作队列
+		Storage:   jetstream.FileStorage,
 	})
 	if err != nil {
 		log.Printf("[NATS] 创建流失败: %v", err)
@@ -83,6 +85,7 @@ func NewConsumer(ctx context.Context, serverCtx *svc.ServiceContext, stream jets
 			_ = msg.Ack()
 		})
 	}
+
 	return nil
 }
 
@@ -90,9 +93,11 @@ func NewConsumer(ctx context.Context, serverCtx *svc.ServiceContext, stream jets
 // FilterSubject 保留 "." 以匹配主题通配规则。
 func consumerConfig(durable, filterSubject string) jetstream.ConsumerConfig {
 	return jetstream.ConsumerConfig{
-		Durable:       durable,
-		AckPolicy:     jetstream.AckExplicitPolicy,
-		FilterSubject: filterSubject,
-		MaxAckPending: 100,
+		Durable:           durable,
+		AckPolicy:         jetstream.AckExplicitPolicy,
+		AckWait:           60 * time.Second,
+		FilterSubject:     filterSubject,
+		MaxAckPending:     100,
+		InactiveThreshold: 10 * time.Minute,
 	}
 }
