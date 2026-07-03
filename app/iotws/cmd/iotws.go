@@ -9,8 +9,8 @@ import (
 	"rainiot/app/iotws/cmd/internal/handler"
 	"rainiot/app/iotws/cmd/internal/logic"
 	"rainiot/app/iotws/cmd/internal/svc"
-	"rainiot/pkg/openconfig"
 	plog "rainiot/pkg/log"
+	"rainiot/pkg/openconfig"
 
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
@@ -27,8 +27,8 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 
-	var nacosconfig openconfig.NacosConfig
-	conf.MustLoad(*configNacosFile, &nacosconfig)
+	var oconfig openconfig.OpenConfig
+	conf.MustLoad(*configNacosFile, &oconfig)
 
 	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
 	logWriter, err := plog.Setup(c.Log, c.Loki, c.Nats.Urls)
@@ -42,7 +42,7 @@ func main() {
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	ctx := svc.NewServiceContext(&c, nacosconfig)
+	ctx := svc.NewServiceContext(&c, oconfig)
 
 	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli, ctx)
 	ctx.WireWsFn(l.Iotws)
@@ -62,4 +62,3 @@ func main() {
 
 	server.Start()
 }
-

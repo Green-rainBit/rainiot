@@ -10,12 +10,14 @@ import (
 	"rainiot/pkg/alarm"
 	"rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli"
+	"rainiot/pkg/devicecli/grpc/instances"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/registry"
 	"rainiot/pkg/util"
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/grpc/resolver"
 )
 
 type ServiceContext struct {
@@ -51,14 +53,16 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Password: c.CacheRedis.Pass,
 	})
 	configcli := c
-	// if registrycli != nil && c.Rpc.Model == "nacos" {
-	// 	c.Rpc.RpcClientConf.Target = c.BuildConfigUrl("iotdevice.grpc")
-	// } else if c.Rpc.Model == "instances" {
-	// 	resolver.Register(instances.NewBuilder(func() []string {
-	// 		return configcli.GetHealthyInstances("iotdevice.grpc")
-	// 	}))
-	// 	c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
-	// }
+	if registrycli != nil && c.Rpc.Model == "nacos" {
+		if c.Rpc.RpcClientConf.Target == "" {
+			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl("iotdevice.grpc")
+		}
+	} else if c.Rpc.Model == "instances" {
+		resolver.Register(instances.NewBuilder(func() []string {
+			return configcli.GetHealthyInstances("iotdevice.grpc")
+		}))
+		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
+	}
 
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
@@ -78,7 +82,6 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 					if r := recover(); r != nil {
 						logger.Error(r)
 					}
-					return
 				}()
 			},
 			NewSession: func() gws.SessionStorage {

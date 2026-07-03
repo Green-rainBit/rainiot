@@ -22,7 +22,6 @@ type Registry interface {
 
 func NewRegistry(config openconfig.OpenConfig) (Registry, bool, error) {
 	var registry Registry
-	var err error
 	switch config.RegistryModel {
 	case "nacos":
 		nacoscli, err := nacos.NewNacosClient(config.RegistryConfig)
@@ -32,12 +31,6 @@ func NewRegistry(config openconfig.OpenConfig) (Registry, bool, error) {
 		resolver.Register(rpcn.NewBuilder(nacoscli.GetNacosClient()))
 		registry = nacoscli
 	default:
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	if registry == nil {
 		return nil, false, nil
 	}
 	return registry, true, nil

@@ -20,7 +20,6 @@ import (
 
 	servergrpc "rainiot/app/iotdevice/cmd/internal/server"
 
-	natsio "github.com/nats-io/nats.go"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
@@ -36,8 +35,8 @@ func main() {
 	var c config.Config
 	conf.MustLoad(*configFile, &c)
 
-	var nacosconfig openconfig.NacosConfig
-	conf.MustLoad(*configNacosFile, &nacosconfig)
+	var ocf openconfig.OpenConfig
+	conf.MustLoad(*configNacosFile, &ocf)
 
 	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
 	logWriter, err := plog.Setup(c.Log, c.Loki, c.Nats.Urls)
@@ -48,23 +47,13 @@ func main() {
 		defer logWriter.Close()
 	}
 
+	ctx := svc.NewServiceContext(&c, ocf)
+
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	ctx := svc.NewServiceContext(c, nacosconfig)
-
-	if len(c.Nats.Urls) > 0 {
-		natsConsumer, err := svc.NewNatsConsumer(c.Nats, func(msg *natsio.Msg) {
-			natshandler.HandleNatsMessage(msg, ctx)
-		})
-		if err != nil {
-			log.Fatalf("init nats consumer err: %v", err)
-		}
-		ctx.NatsConsumer = natsConsumer
-		defer ctx.NatsConsumer.Close()
-	}
-
 	handler.RegisterHandlers(server, ctx)
+	natshandler.StartRouter(ctx)
 
 	s := zrpc.MustNewServer(c.Rpc, func(grpcServer *grpc.Server) {
 		pb.RegisterIotdeviceServer(grpcServer, servergrpc.NewIotdeviceServer(ctx))
