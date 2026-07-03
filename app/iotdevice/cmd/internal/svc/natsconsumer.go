@@ -58,7 +58,6 @@ func NewNatsJetStream(conf nats.NatsConf) (jetstream.JetStream, error) {
 			log.Printf("[NATS Consumer] Connection closed")
 		}),
 	}
-
 	// nats.Connect 接受逗号分隔的多个 URL，自动支持集群发现和故障转移
 	conn, err := natsio.Connect(strings.Join(urls, ","), opts...)
 	if err != nil {

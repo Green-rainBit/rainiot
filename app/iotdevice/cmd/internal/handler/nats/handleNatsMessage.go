@@ -13,19 +13,31 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// HandleAllNatsMessage 是路由消费者回调：从原始入口消息里提取 cmd，
+// 把消息以 "<ingress>.<cmd>" 主题重新发布到同一个流，供各 cmd 下游消费者分别处理。
 func HandleAllNatsMessage(ctx context.Context, conf nats.NatsConf, js jetstream.JetStream, msg jetstream.Msg) {
-	newSubject := conf.Subject + "." + extractCmd(msg.Data())
-	if _, err := js.Publish(ctx, newSubject, msg.Data()); err != nil {
-		// 分发失败
-		msg.Nak()
+	cmd := extractCmd(msg.Data())
+	if cmd == "" {
+		// 没有 cmd 无法路由：丢弃并告警，避免 Nak 造成永久重投的死循环。
+		log.Printf("[NATS] 跳过无 cmd 的消息: %s", string(msg.Data()))
+		_ = msg.Ack()
 		return
 	}
 
-	// 6. 全部成功，手动确认原始消息（从 raw.ingress 中移除）
-	msg.Ack()
-	log.Printf("消息已路由至: %s", newSubject)
+	// 发布主题必须用 "." 分隔，与流过滤器 (ingress+".>") 及下游 FilterSubject 精确匹配。
+	// 切勿对主题使用 sanitizeName：它会把 "." 换成 "_"，导致主题匹配不到任何流，报 "no response from stream"。
+	newSubject := conf.Subject + "." + cmd
+	if _, err := js.Publish(ctx, newSubject, msg.Data()); err != nil {
+		log.Printf("[NATS] 分发失败 subject=%s: %v", newSubject, err)
+		_ = msg.Nak()
+		return
+	}
+
+	_ = msg.Ack()
+	log.Printf("[NATS] 已路由至 %s", newSubject)
 }
 
+// extractCmd 从 JSON 负载里取出 "cmd" 字段值；缺失或非法时返回 ""。
 func extractCmd(payload []byte) string {
 	key := []byte(`"cmd":"`)
 	i := bytes.Index(payload, key)
@@ -40,6 +52,7 @@ func extractCmd(payload []byte) string {
 	return string(payload[start : start+end])
 }
 
+// HandleNatsMessage 是各 cmd 下游消费者的回调：反序列化后执行设备连接逻辑。
 func HandleNatsMessage(msg jetstream.Msg, svcCtx *svc.ServiceContext) {
 	req := &pb.DeviceConnectReq{}
 	if err := protojson.Unmarshal(msg.Data(), req); err != nil {
