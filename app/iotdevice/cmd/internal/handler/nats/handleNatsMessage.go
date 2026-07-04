@@ -8,6 +8,7 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/pkg/devicecli/grpc/pb"
 	"rainiot/pkg/devicecli/nats"
+	"strings"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -17,6 +18,7 @@ import (
 // 把消息以 "<ingress>.<cmd>" 主题重新发布到同一个流，供各 cmd 下游消费者分别处理。
 func HandleAllNatsMessage(ctx context.Context, conf nats.NatsConf, js jetstream.JetStream, msg jetstream.Msg) {
 	cmd := extractCmd(msg.Data())
+	log.Printf("[NATS]: %s", string(msg.Data()))
 	if cmd == "" {
 		// 没有 cmd 无法路由：丢弃并告警，避免 Nak 造成永久重投的死循环。
 		log.Printf("[NATS] 跳过无 cmd 的消息: %s", string(msg.Data()))
@@ -27,7 +29,7 @@ func HandleAllNatsMessage(ctx context.Context, conf nats.NatsConf, js jetstream.
 	// 发布主题必须用 "." 分隔，与流过滤器 (ingress+".>") 及下游 FilterSubject 精确匹配。
 	// 切勿对主题使用 sanitizeName：它会把 "." 换成 "_"，导致主题匹配不到任何流，报 "no response from stream"。
 	newSubject := conf.Subject + "." + cmd
-	if _, err := js.Publish(ctx, newSubject, msg.Data()); err != nil {
+	if _, err := js.Publish(ctx, strings.ToLower(newSubject), msg.Data()); err != nil {
 		log.Printf("[NATS] 分发失败 subject=%s: %v", newSubject, err)
 		_ = msg.Nak()
 		return

@@ -98,6 +98,6 @@ func consumerConfig(durable, filterSubject string) jetstream.ConsumerConfig {
 		AckWait:           60 * time.Second,
 		FilterSubject:     filterSubject,
 		MaxAckPending:     100,
-		InactiveThreshold: 10 * time.Minute,
+		InactiveThreshold: 10 * time.Second,
 	}
 }
