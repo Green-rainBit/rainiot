@@ -4,6 +4,7 @@
 package svc
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strings"
@@ -12,8 +13,10 @@ import (
 	"rainiot/app/iotdevice/model"
 	"rainiot/pkg/configcli"
 	"rainiot/pkg/openconfig"
+	"rainiot/pkg/queue"
 	"rainiot/pkg/registry"
 
+	"github.com/hadi77ir/go-mq"
 	_ "github.com/lib/pq"
 	"github.com/nats-io/nats.go/jetstream"
 	goredis "github.com/redis/go-redis/v9"
@@ -26,6 +29,7 @@ type ServiceContext struct {
 	Redis         *goredis.ClusterClient
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
+	Mq            mq.Broker
 }
 
 func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
@@ -61,16 +65,16 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	natsJetStream, err := NewNatsJetStream(c.Nats)
+	mq, err := queue.NewBrokerFromConfig(context.Background(), &c.MQ)
 	if err != nil {
-		log.Fatalf("init nats err: %v", err)
+		log.Fatalf("new broker from fonfig: %v", err)
 	}
 	svcCtx := &ServiceContext{
-		Config:        c,
-		DeviceModel:   model.NewDeviceModel(conn),
-		Redis:         client,
-		Registry:      registrycli,
-		NatsJetStream: natsJetStream,
+		Config:      c,
+		DeviceModel: model.NewDeviceModel(conn),
+		Redis:       client,
+		Registry:    registrycli,
+		Mq:          mq,
 	}
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，

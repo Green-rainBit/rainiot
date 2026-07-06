@@ -4,8 +4,8 @@ import (
 	"sync"
 
 	"rainiot/pkg/alarm"
-	"rainiot/pkg/devicecli/nats"
 	"rainiot/pkg/log/logloki"
+	"rainiot/pkg/openconfig"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -20,10 +20,10 @@ type Config struct {
 	} `json:",optional"`
 	CacheRedis      redis.RedisConf
 	DeviceServerMap map[string][]string `json:"DeviceServerMap,optional"`
-	Nats            nats.NatsConf       `json:",optional"`
 	Loki            logloki.LokiConf    `json:",optional"`
 	TransportModel  string              `json:",optional"`
 	AlarmConfig     alarm.Config        `json:",optional"`
+	MQ              openconfig.MQConfig `json:"mq,optional"`
 
 	mu sync.RWMutex
 }

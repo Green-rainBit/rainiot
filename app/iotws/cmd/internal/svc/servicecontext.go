@@ -68,7 +68,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 
-	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.Nats, alarm.New(c.AlarmConfig))
+	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
 
 	return &ServiceContext{
 		Config:     c,

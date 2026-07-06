@@ -10,7 +10,9 @@ import (
 	conf_cli "rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli/grpc"
 	"rainiot/pkg/devicecli/httpc"
-	"rainiot/pkg/devicecli/nats"
+	"rainiot/pkg/devicecli/mq"
+
+	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -74,16 +76,16 @@ type deviceCli struct {
 	serviceName string
 	confCli     conf_cli.ConfigCli
 	zrpcConf    zrpc.RpcClientConf
-	natsConf    *nats.NatsConf
+	mqConfig    *openconfig.MQConfig
 	alarmSender alarm.Sender
 }
 
-func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, natsConf *nats.NatsConf, alarmSender alarm.Sender) *deviceCli {
+func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, mqConfig *openconfig.MQConfig, alarmSender alarm.Sender) *deviceCli {
 	d := &deviceCli{
 		serviceName: serviceName,
 		confCli:     confCli,
 		zrpcConf:    zrpcConf,
-		natsConf:    natsConf,
+		mqConfig:    mqConfig,
 		alarmSender: alarmSender,
 	}
 	d.initLocked(ParseMode(model))
@@ -100,12 +102,12 @@ func (d *deviceCli) initLocked(mode PushMode) {
 	if mode&ModeHTTP != 0 {
 		d.http = httpc.NewDeviceCli(d.serviceName, d.confCli.GetHealthyInstances)
 	}
-	if mode&ModeNATS != 0 && d.natsConf != nil {
-		natsCli, err := nats.NewDeviceCli(d.serviceName, *d.natsConf)
+	if mode&ModeNATS != 0 && d.mqConfig != nil {
+		mqCli, err := mq.NewDeviceCli(d.serviceName, d.mqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] init nats client failed (disabled): %v", err)
 		} else {
-			d.nats = natsCli
+			d.nats = mqCli
 		}
 	}
 
@@ -141,9 +143,9 @@ func (d *deviceCli) Reload(model string) {
 	if newMode&ModeHTTP != 0 && oldHttp == nil {
 		newHttp = httpc.NewDeviceCli(d.serviceName, d.confCli.GetHealthyInstances)
 	}
-	if newMode&ModeNATS != 0 && oldNats == nil && d.natsConf != nil {
+	if newMode&ModeNATS != 0 && oldNats == nil && d.mqConfig != nil {
 		var err error
-		newNats, err = nats.NewDeviceCli(d.serviceName, *d.natsConf)
+		newNats, err = mq.NewDeviceCli(d.serviceName, d.mqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] hot-reload nats failed (disabled): %v", err)
 		}

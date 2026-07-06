@@ -13,11 +13,6 @@ import (
 type Registry interface {
 	InitRegisterInstanceGrpc(c zrpc.RpcServerConf) error
 	InitRegisterInstance(c rest.RestConf) error
-	// HasSeverCli(serviceName string) (bool, error)
-	// GetSeverCli(serviceName string) error
-	// GetHealthyInstances(serviceName string) []string
-	// SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf)
-
 }
 
 func NewRegistry(config openconfig.OpenConfig) (Registry, bool, error) {

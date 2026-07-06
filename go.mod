@@ -3,6 +3,9 @@ module rainiot
 go 1.25.5
 
 require (
+	github.com/hadi77ir/go-mq v1.3.0
+	github.com/hadi77ir/go-mq/nats v1.3.0
+	github.com/hadi77ir/go-mq/rabbitmq v1.3.0
 	github.com/hibiken/asynq v0.26.0
 	github.com/lib/pq v1.10.9
 	github.com/lxzan/gws v1.8.9
@@ -63,6 +66,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
 	github.com/golang/mock v1.6.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
+	github.com/golang/snappy v1.0.0 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -84,12 +88,15 @@ require (
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
+	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/rabbitmq/amqp091-go v1.9.0 // indirect
+	github.com/rabbitmq/rabbitmq-stream-go-client v1.6.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/titanous/json5 v1.0.0 // indirect

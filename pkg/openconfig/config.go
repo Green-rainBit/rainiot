@@ -13,6 +13,29 @@ type OpenConfig struct {
 	RegistryConfig NacosConfig `json:"registryConfig,optional"`
 }
 
+// MQConfig 消息队列配置
+type MQConfig struct {
+	Type     string         `json:"type"` // "rabbitmq" 或 "nats"
+	RabbitMQ RabbitMQConfig `json:"rabbitmq,optional"`
+	NATS     NATSConfig     `json:"nats,optional"`
+}
+
+type RabbitMQConfig struct {
+	Addresses       []string `json:"addresses"`
+	Username        string   `json:"username"`
+	Password        string   `json:"password"`
+	Exchange        string   `json:"exchange"`
+	ExchangeType    string   `json:"exchangeType"`
+	DeclareExchange bool     `json:"declareExchange"`
+}
+
+type NATSConfig struct {
+	Addresses  []string `json:"addresses"`
+	Username   string   `json:"username,omitempty"`
+	Password   string   `json:"password,omitempty"`
+	StreamName string   `json:"streamName,optional"`
+}
+
 type NacosConfig struct {
 	IpAddress []string `json:"ipAddress,optional"`
 	Port      uint64   `json:"port,optional"`
