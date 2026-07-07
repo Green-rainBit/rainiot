@@ -3,6 +3,8 @@ package openconfig
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ThreeDotsLabs/watermill-nats/v2/pkg/nats"
 )
 
 type OpenConfig struct {
@@ -30,10 +32,9 @@ type RabbitMQConfig struct {
 }
 
 type NATSConfig struct {
-	Addresses  []string `json:"addresses"`
-	Username   string   `json:"username,omitempty"`
-	Password   string   `json:"password,omitempty"`
-	StreamName string   `json:"streamName,optional"`
+	Addresses []string `json:"addresses"`
+	nats.PublisherPublishConfig
+	nats.SubscriberConfig
 }
 
 type NacosConfig struct {

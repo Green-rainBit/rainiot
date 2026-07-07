@@ -7,7 +7,8 @@ import (
 	"rainiot/pkg/queue"
 	"time"
 
-	"github.com/hadi77ir/go-mq"
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/nats-io/nats.go"
 )
 
@@ -21,7 +22,7 @@ const (
 var ErrNatsNotConnected = nats.ErrConnectionClosed
 
 type deviceNatsCli struct {
-	conn        mq.Broker
+	conn        queue.Queue
 	serviceName string
 	subject     string
 	retryCount  int
@@ -47,19 +48,13 @@ func NewDeviceCli(serviceName string, cfg *openconfig.MQConfig) (*deviceNatsCli,
 // Push 将消息发布到 NATS 主题（即发即弃模式）。
 // connId 通过 NATS 头部传递，message 作为消息体。
 // 如果启用了 JetStream，使用 js.PublishMsg 持久化发布。
-func (d *deviceNatsCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
+func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) ([]byte, error) {
 	if d.conn == nil {
 		return nil, ErrNatsNotConnected
 	}
-
-	msg := mq.Message{
-		Body: message,
-		Headers: map[string]string{
-			"ServiceName": d.serviceName,
-			"ConnId":      connId,
-		},
-		// Timeout: defaultTimeout,
-	}
+	msg := message.NewMessage(watermill.NewUUID(), mesage)
+	msg.Metadata.Set("ServiceName", d.serviceName)
+	msg.Metadata.Set("ConnId", connId)
 
 	var err error
 	for i := 0; i <= d.retryCount; i++ {
@@ -69,7 +64,7 @@ func (d *deviceNatsCli) Push(ctx context.Context, connId string, message []byte)
 		default:
 		}
 
-		err = d.conn.Publish(ctx, "iot_device", msg)
+		err = d.conn.Publish("iot_device", msg)
 		if err == nil {
 			return nil, nil
 		}
@@ -92,5 +87,5 @@ func (d *deviceNatsCli) Close() {
 	if d.conn == nil {
 		return
 	}
-	d.conn.Close(context.Background())
+	d.conn.Close()
 }

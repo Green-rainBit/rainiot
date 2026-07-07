@@ -3,40 +3,32 @@ package queue
 import (
 	"context"
 	"fmt"
-	"rainiot/pkg/openconfig"
 
-	"github.com/hadi77ir/go-mq"
-	nats "github.com/hadi77ir/go-mq/nats"
-	"github.com/hadi77ir/go-mq/rabbitmq"
+	"rainiot/pkg/openconfig"
+	nats "rainiot/pkg/queue/nats"
+	"rainiot/pkg/queue/rabbitmq"
+
+	"github.com/ThreeDotsLabs/watermill"
+	"github.com/ThreeDotsLabs/watermill/message"
 )
 
 // NewBrokerFromConfig 根据配置创建对应的 Broker 实例
-func NewBrokerFromConfig(ctx context.Context, cfg *openconfig.MQConfig) (mq.Broker, error) {
+
+type Queue interface {
+	// 创建 Broker 实例
+	Publish(topic string, messages ...*message.Message) error
+	Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error)
+	Close() error
+}
+
+func NewBrokerFromConfig(ctx context.Context, cfg *openconfig.MQConfig) (Queue, error) {
+	logger := watermill.NewStdLogger(false, false)
 	switch cfg.Type {
 	case "rabbitmq":
-		rmqCfg := rabbitmq.Config{
-			Connection: mq.Config{
-				Addresses: cfg.RabbitMQ.Addresses,
-				Username:  cfg.RabbitMQ.Username,
-				Password:  cfg.RabbitMQ.Password,
-			},
-			Exchange:        cfg.RabbitMQ.Exchange,
-			ExchangeType:    cfg.RabbitMQ.ExchangeType,
-			DeclareExchange: cfg.RabbitMQ.DeclareExchange,
-		}
-		return rabbitmq.NewBroker(ctx, rmqCfg)
-
+		queue, err := rabbitmq.NewRabbitMQConnect(cfg.RabbitMQ, logger)
+		return queue, err
 	case "nats":
-		natsCfg := nats.Config{
-			Connection: mq.Config{
-				Addresses: cfg.NATS.Addresses,
-				Username:  cfg.NATS.Username,
-				Password:  cfg.NATS.Password,
-			},
-			PublishMode: nats.PublishModeJetStream,
-			// 可添加 JetStream 等高级配置
-		}
-		return nats.NewBroker(ctx, natsCfg)
+		return nats.NewNatsConnect(cfg.NATS, logger)
 
 	default:
 		return nil, fmt.Errorf("unsupported MQ type: %s", cfg.Type)

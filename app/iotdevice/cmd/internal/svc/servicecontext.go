@@ -16,7 +16,6 @@ import (
 	"rainiot/pkg/queue"
 	"rainiot/pkg/registry"
 
-	"github.com/hadi77ir/go-mq"
 	_ "github.com/lib/pq"
 	"github.com/nats-io/nats.go/jetstream"
 	goredis "github.com/redis/go-redis/v9"
@@ -29,7 +28,7 @@ type ServiceContext struct {
 	Redis         *goredis.ClusterClient
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
-	Mq            mq.Broker
+	Queue         queue.Queue
 }
 
 func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
@@ -74,7 +73,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		DeviceModel: model.NewDeviceModel(conn),
 		Redis:       client,
 		Registry:    registrycli,
-		Mq:          mq,
+		Queue:       mq,
 	}
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
