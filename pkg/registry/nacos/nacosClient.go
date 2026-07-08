@@ -1,8 +1,8 @@
 package nacos
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"rainiot/pkg/openconfig"
@@ -177,7 +177,7 @@ func (n *nacosClient) autoRefresh() {
 			}
 			err := n.GetSeverCli(arr[0]) // 忽略错误，保留旧列表
 			if err != nil {
-				log.Println(err)
+				n.Errorf("[Nacos] autoRefresh error: %v", err)
 			}
 			return true
 		})
@@ -190,7 +190,7 @@ func (n *nacosClient) GetHealthyInstances(serviceName string) []string {
 	v, ok := n.instances.Load(key)
 	if !ok {
 		if err := n.GetSeverCli(serviceName); err != nil {
-			log.Println(err)
+			n.Errorf("[Nacos] GetHealthyInstances error: %v", err)
 			return nil
 		}
 		v, ok = n.instances.Load(key)
@@ -208,7 +208,7 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	<-c
-	log.Println("\n[INFO] Shutdown signal received, deregistering...")
+	logx.WithContext(context.Background()).Info("[Nacos] Shutdown signal received, deregistering...")
 	_, err := namingClient.DeregisterInstance(vo.DeregisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
@@ -216,9 +216,9 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 		Ephemeral:   true,
 	})
 	if err != nil {
-		log.Println("[ERROR] Deregister failed: %v\n", serviceName, err)
+		logx.WithContext(context.Background()).Errorf("[Nacos] Deregister failed: service=%s err=%v", serviceName, err)
 	} else {
-		log.Println("[INFO] Deregistered successfully.", serviceName)
+		logx.WithContext(context.Background()).Infof("[Nacos] Deregistered successfully: service=%s", serviceName)
 	}
 	os.Exit(0)
 }

@@ -46,10 +46,10 @@ func NewDeviceCli(serviceName string, cfg *openconfig.MQConfig) (*deviceNatsCli,
 
 // Push 将消息发布到 NATS 主题（即发即弃模式）。
 // connId 通过 NATS 头部传递，message 作为消息体。
-// 如果启用了 JetStream，使用 js.PublishMsg 持久化发布。
-func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) ([]byte, error) {
+// shouldRespond 始终返回 false：NATS 是异步投递，无需同步等待响应。
+func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) ([]byte, bool, error) {
 	if d.conn == nil {
-		return nil, ErrNatsNotConnected
+		return nil, false, ErrNatsNotConnected
 	}
 	msg := message.NewMessage(watermill.NewUUID(), mesage)
 	msg.Metadata.Set("ServiceName", d.serviceName)
@@ -59,22 +59,22 @@ func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) 
 	for i := 0; i <= d.retryCount; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		default:
 		}
 
 		err = d.conn.Publish(d.subject, msg)
 		if err == nil {
-			return nil, nil
+			return nil, false, nil
 		}
 
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, false, ctx.Err()
 		case <-time.After(d.retryWait):
 		}
 	}
-	return nil, err
+	return nil, false, err
 }
 
 func (d *deviceNatsCli) Information() string {

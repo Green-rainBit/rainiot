@@ -87,14 +87,14 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 			NewSession: func() gws.SessionStorage {
 				return gws.NewConcurrentMap[string, any](1)
 			},
-			ReadBufferSize:      8192,
-			WriteBufferSize:     8192,
-			ParallelEnabled:     true,
-			ParallelGolimit:     1024,
+			ReadBufferSize:      c.WsConf.ReadBufferSize,
+			WriteBufferSize:     c.WsConf.WriteBufferSize,
+			ParallelEnabled:     c.WsConf.ParallelEnabled,
+			ParallelGolimit:     c.WsConf.ParallelGolimit,
 			PermessageDeflate:   gws.PermessageDeflate{Enabled: false},
-			CheckUtf8Enabled:    false,
-			ReadMaxPayloadSize:  8192,
-			WriteMaxPayloadSize: 8192,
+			CheckUtf8Enabled:    c.WsConf.CheckUtf8Enabled,
+			ReadMaxPayloadSize:  c.WsConf.ReadMaxPayloadSize,
+			WriteMaxPayloadSize: c.WsConf.WriteMaxPayloadSize,
 		}),
 	}
 }

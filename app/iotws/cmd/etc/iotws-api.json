@@ -36,6 +36,15 @@
       ]
     }
   },
+  "WsConf": {
+    "ReadBufferSize": 8192,
+    "WriteBufferSize": 8192,
+    "ReadMaxPayloadSize": 8192,
+    "WriteMaxPayloadSize": 8192,
+    "ParallelEnabled": true,
+    "ParallelGolimit": 1024,
+    "CheckUtf8Enabled": false
+  },
   "MiddlewaresConf": {
     "Recover": true
   },

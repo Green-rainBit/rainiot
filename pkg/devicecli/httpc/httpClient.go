@@ -64,17 +64,18 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *dev
 	}
 }
 
-func (d *deviceHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
+func (d *deviceHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
 
 	resp, err := d.do(ctx, http.MethodPost, "/device/connect", connId, bytes.NewBuffer(message), d.headers)
 	if err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	if resp == nil {
-		return nil, nil
+		return nil, true, nil
 	}
 	defer resp.Body.Close()
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	return body, true, err
 }
 
 // Do 执行 HTTP 请求，自动故障转移

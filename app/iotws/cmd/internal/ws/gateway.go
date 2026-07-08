@@ -125,7 +125,7 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 			defer socket.WriteMessage(message.Opcode, []byte(err.Error()))
 			return
 		}
-		if sync {
+		if sync && len(by) > 0 {
 			socket.WriteMessage(message.Opcode, by)
 		}
 

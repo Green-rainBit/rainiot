@@ -21,7 +21,9 @@ import (
 
 // DeviceCli 设备推送客户端接口。
 type DeviceCli interface {
-	Push(ctx context.Context, connId string, message []byte) ([]byte, error)
+	// Push 推送消息。shouldRespond 表示是否需要将响应写回 WebSocket 客户端。
+	// NATS（即发即弃）返回 false；HTTP/gRPC（请求-响应）返回 true。
+	Push(ctx context.Context, connId string, message []byte) (resp []byte, shouldRespond bool, err error)
 	Information() string
 }
 
@@ -226,20 +228,20 @@ func (d *deviceCli) rebuildChain() {
 }
 
 // Push 优先级回退推送。
-func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
+func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
 	d.mu.RLock()
 	chain := d.chain
 	d.mu.RUnlock()
 
 	if len(chain) == 0 {
-		return nil, ErrNoClientAvailable
+		return nil, false, ErrNoClientAvailable
 	}
 
 	var lastErr error
 	for _, cli := range chain {
-		resp, err := cli.Push(ctx, connId, message)
+		resp, shouldRespond, err := cli.Push(ctx, connId, message)
 		if err == nil {
-			return resp, nil
+			return resp, shouldRespond, nil
 		}
 		lastErr = err
 		logx.WithContext(ctx).Error("connId: ", connId, "[deviceCli] client ", cli.Information(), " push failed, fallback next: ", err.Error())
@@ -255,7 +257,7 @@ func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]
 		}
 	})
 
-	return nil, lastErr
+	return nil, false, lastErr
 }
 
 func (d *deviceCli) Information() string {
