@@ -2,14 +2,10 @@ package natshandler
 
 import (
 	"bytes"
-	"context"
 	"log"
-	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
-	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/ThreeDotsLabs/watermill/message"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 // // HandleAllNatsMessage 是路由消费者回调：从原始入口消息里提取 cmd，
@@ -47,4 +43,3 @@ func extractCmd(payload []byte) string {
 	}
 	return string(payload[start : start+end])
 }
-
