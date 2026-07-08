@@ -3,45 +3,33 @@ package natshandler
 import (
 	"bytes"
 
-	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
-	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/ThreeDotsLabs/watermill/message"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// HandleAllNatsMessage 是路由消费者回调：从原始入口消息里提取 cmd，
-// 直接路由到对应的 logic 处理，避免重新发布到 NATS 带来的二次 JetStream 开销。
+// HandleAllNatsMessage 入口消费者回调：从消息里提取 cmd，按 cmd 重新发布到专属 subject。
+// 二次分发是为了利用 NATS 队列组实现 cmd 间隔离——慢 cmd 不会阻塞快 cmd 的消息投递。
 func HandleAllNatsMessage(svcCtx *svc.ServiceContext, msg *message.Message) error {
 	cmd := extractCmd(msg.Payload)
 	if cmd == "" {
+		msg.Ack()
 		return nil
 	}
-	logicMap := map[string]struct{}{}
-	logicMap["login"] = struct{}{}
-	if _, ok := logicMap[cmd]; !ok {
+	subject := svcCtx.Config.MQ.NATS.Subject
+
+	// 检查 cmd 是否已注册（未注册的 cmd 丢弃并 Ack）
+	if _, ok := cmdWorkers[cmd]; !ok {
+		msg.Ack()
 		return nil
 	}
 
-	// 直接调用 logic，不再重新发布到 NATS（消除 ensureStream + PublishMsg 二次开销）
-	return routeToLogic(cmd, svcCtx, msg)
-}
-
-// routeToLogic 将消息直接路由到对应的 logic 处理，替代原来的 NATS 二次发布模式。
-func routeToLogic(cmd string, svcCtx *svc.ServiceContext, msg *message.Message) error {
-	req := &pb.DeviceConnectReq{}
-	if err := protojson.Unmarshal(msg.Payload, req); err != nil {
+	newSubject := subject + "_" + cmd
+	if err := svcCtx.Queue.Publish(newSubject, msg); err != nil {
 		return err
 	}
-	if connId := msg.Metadata.Get("ConnId"); connId != "" {
-		req.ConnId = connId
-	}
-	if serviceName := msg.Metadata.Get("ServiceName"); serviceName != "" {
-		req.ServiceName = serviceName
-	}
-	_, err := logic.NewIotdeviceLogic(msg.Context(), req.Cmd, svcCtx).Iotdevice(req)
-	return err
+	msg.Ack()
+	return nil
 }
 
 // extractCmd 从 JSON 负载里取出 "cmd" 字段值；缺失或非法时返回 ""。
