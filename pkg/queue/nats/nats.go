@@ -37,7 +37,31 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 		subOpts = append(subOpts, ns.MaxAckPending(nconfig.MaxAckPending))
 	}
 
-	jetStreamCfg := nats.JetStreamConfig{
+	// 预先创建 JetStream stream（仅一次），避免每次 publish 时 ensureStream 带来的
+	// StreamInfo API 往返开销。stream 存在后 JetStream publish 直接使用即可。
+	if nconfig.AutoProvision {
+		js, err := connect.JetStream()
+		if err == nil {
+			_, err = js.AddStream(&ns.StreamConfig{
+				Name:     nconfig.Subject,
+				Subjects: []string{nconfig.Subject, nconfig.Subject + ".>"},
+			})
+			if err != nil {
+				logger.Error("NATS AddStream warning (stream may already exist)", err, nil)
+			}
+		}
+	}
+
+	// 发布端关闭 autoProvision：stream 已在上面预创建，无需每次 publish 都查 StreamInfo。
+	pubJetStreamCfg := nats.JetStreamConfig{
+		Disabled:         false,
+		AutoProvision:    false, // stream 已预创建，关闭 per-publish ensureStream
+		DurablePrefix:    durablePrefix,
+		SubscribeOptions: subOpts,
+	}
+
+	// 订阅端保留 autoProvision：consumers 可能需要自动创建。
+	subJetStreamCfg := nats.JetStreamConfig{
 		Disabled:         false,
 		AutoProvision:    nconfig.AutoProvision,
 		DurablePrefix:    durablePrefix,
@@ -47,7 +71,7 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 	publisher, err := nats.NewPublisherWithNatsConn(connect, nats.PublisherPublishConfig{
 		Marshaler:         &nats.NATSMarshaler{},
 		SubjectCalculator: nats.DefaultSubjectCalculator,
-		JetStream:         jetStreamCfg,
+		JetStream:         pubJetStreamCfg,
 	}, logger)
 	if err != nil {
 		return nil, err
@@ -57,7 +81,7 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 		SubjectCalculator: nats.DefaultSubjectCalculator,
 		QueueGroupPrefix:  nconfig.QueueGroupPrefix,
 		SubscribersCount:  nconfig.SubscribersCount,
-		JetStream:         jetStreamCfg,
+		JetStream:         subJetStreamCfg,
 	}, logger)
 	if err != nil {
 		return nil, err

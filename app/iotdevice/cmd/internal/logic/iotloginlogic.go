@@ -33,15 +33,9 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		l.Logger.Errorf("device sn cannot be empty")
 		return nil, errors.NewMyError(5000, "device sn cannot be empty")
 	}
-	exists, err := l.svcCtx.Redis.Exists(l.ctx, cache.GetCacheConn(req.GetSn())).Result()
-	if err != nil {
-		return nil, err
-	}
-	if exists == 1 {
-		_, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheConn(req.GetSn())).Result()
-		if err != nil {
-			return nil, err
-		}
+	// 使用 GET 替代 EXISTS+GET 两次往返：GET 返回 nil 即表示 key 不存在。
+	if val, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheConn(req.GetSn())).Result(); err == nil {
+		_ = val
 		//todo: 计划根据服务名称获取该服务是否存在该连接
 	}
 	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetSn())
