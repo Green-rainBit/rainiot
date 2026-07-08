@@ -1,7 +1,6 @@
 package nats
 
 import (
-	"log"
 	"strings"
 	"time"
 
@@ -22,14 +21,40 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 		ns.MaxReconnects(-1),
 		ns.ReconnectWait(3*time.Second),
 	)
-
-	publisher, err := nats.NewPublisherWithNatsConn(connect, nconfig.PublisherPublishConfig, logger)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("NATS Connect Error", err, nil)
+		return nil, err
 	}
-	sub, err := nats.NewSubscriber(nconfig.SubscriberConfig, logger)
+
+	// DurablePrefix 未设置时回退到 Subject，保证兼容
+	durablePrefix := nconfig.DurablePrefix
+	if durablePrefix == "" {
+		durablePrefix = nconfig.Subject
+	}
+
+	jetStreamCfg := nats.JetStreamConfig{
+		Disabled:      false,
+		AutoProvision: nconfig.AutoProvision,
+		DurablePrefix: durablePrefix,
+	}
+
+	publisher, err := nats.NewPublisherWithNatsConn(connect, nats.PublisherPublishConfig{
+		Marshaler:         &nats.NATSMarshaler{},
+		SubjectCalculator: nats.DefaultSubjectCalculator,
+		JetStream:         jetStreamCfg,
+	}, logger)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
+	}
+
+	sub, err := nats.NewSubscriberWithNatsConn(connect, nats.SubscriberSubscriptionConfig{
+		SubjectCalculator: nats.DefaultSubjectCalculator,
+		QueueGroupPrefix:  nconfig.QueueGroupPrefix,
+		SubscribersCount:  nconfig.SubscribersCount,
+		JetStream:         jetStreamCfg,
+	}, logger)
+	if err != nil {
+		return nil, err
 	}
 	return &natscilent{
 		Publisher:  publisher,

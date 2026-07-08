@@ -3,8 +3,6 @@ package openconfig
 import (
 	"fmt"
 	"strings"
-
-	"github.com/ThreeDotsLabs/watermill-nats/v2/pkg/nats"
 )
 
 type OpenConfig struct {
@@ -32,9 +30,12 @@ type RabbitMQConfig struct {
 }
 
 type NATSConfig struct {
-	Addresses []string `json:"addresses"`
-	nats.PublisherPublishConfig
-	nats.SubscriberConfig
+	Addresses        []string `json:"addresses"`                  // NATS 服务地址列表，多个地址构成集群
+	Subject          string   `json:"subject"`                    // 发布/订阅主题
+	QueueGroupPrefix string   `json:"queueGroupPrefix,optional"`  // 工作队列组名，非空即为工作队列模式
+	DurablePrefix    string   `json:"durablePrefix,optional"`     // JetStream 持久消费者前缀，未设置回退到 Subject
+	AutoProvision    bool     `json:"autoProvision,optional"`     // 自动创建 JetStream Stream
+	SubscribersCount int      `json:"subscribersCount,optional"`  // 并发消费者数量，0 表示单协程
 }
 
 type NacosConfig struct {

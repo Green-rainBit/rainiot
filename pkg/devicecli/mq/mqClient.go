@@ -2,7 +2,6 @@ package mq
 
 import (
 	"context"
-	"log"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/queue"
 	"time"
@@ -35,9 +34,9 @@ func NewDeviceCli(serviceName string, cfg *openconfig.MQConfig) (*deviceNatsCli,
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[NATS] Connected to %s", conn)
 	d := &deviceNatsCli{
 		conn:        conn,
+		subject:     cfg.NATS.Subject,
 		serviceName: serviceName,
 		retryCount:  defaultRetryCount,
 		retryWait:   defaultRetryWait,
@@ -64,7 +63,7 @@ func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) 
 		default:
 		}
 
-		err = d.conn.Publish("iot_device", msg)
+		err = d.conn.Publish(d.subject, msg)
 		if err == nil {
 			return nil, nil
 		}

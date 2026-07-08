@@ -7,11 +7,12 @@
     "Path": "logs/iotws-api"
   },
   "Loki": {
-    "Enable": true,
+    "Enable": false,
     "Mode": "direct",
     "Url": "http://localhost:3100",
     "SourceName": "rainiot",
-    "JobName": "iotws"
+    "JobName": "iotws-api",
+    "Console": true
   },
   "CacheRedis": {
     "type": "cluster",
@@ -22,14 +23,25 @@
     "Model": "instances"
   },
   "DeviceServerMap": {},
-  "Nats": {
-    "Urls": [
-      "nats://localhost:14222"
-    ],
-    "Subject": "iotws",
-    "JetStream": false
+  "mq": {
+    "type": "nats",
+    "nats": {
+      "subject": "iot_device",
+      "queueGroupPrefix": "",
+      "durablePrefix": "",
+      "autoProvision": false,
+      "subscribersCount": 0,
+      "addresses": [
+        "nats://localhost:14222"
+      ]
+    }
   },
   "MiddlewaresConf": {
     "Recover": true
+  },
+  "TransportModel": "nats",
+  "AlarmConfig": {
+    "Key1": "",
+    "Enabled": false
   }
 }
