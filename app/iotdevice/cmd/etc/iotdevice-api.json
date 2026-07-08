@@ -32,6 +32,7 @@
       "durablePrefix": "",
       "autoProvision": false,
       "subscribersCount": 0,
+      "maxAckPending": 0,
       "addresses": [
         "nats://localhost:14222"
       ]

@@ -16,6 +16,11 @@ func HandleAllNatsMessage(svcCtx *svc.ServiceContext, msg *message.Message) erro
 	if cmd == "" {
 		return nil
 	}
+	logicMap := map[string]struct{}{}
+	logicMap["login"] = struct{}{}
+	if _, ok := logicMap[cmd]; !ok {
+		return nil
+	}
 
 	// 发布主题必须用 "." 分隔，与流过滤器 (ingress+".>") 及下游 FilterSubject 精确匹配。
 	// 切勿对主题使用 sanitizeName：它会把 "." 换成 "_"，导致主题匹配不到任何流，报 "no response from stream"。

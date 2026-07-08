@@ -11,6 +11,9 @@ import (
 
 const (
 	defaultDeviceServiceName = "iotdevice_api"
+	defaultHTTPTimeout       = 3 * time.Second
+	defaultMaxIdleConns      = 100
+	defaultMaxConnsPerHost   = 200
 )
 
 type LoadBalancer interface {
@@ -48,7 +51,15 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *dev
 		retryCount:    3,
 		headers:       map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},
 		balancer:      &RoundRobin{},
-		client:        &http.Client{},
+		client: &http.Client{
+			Timeout: defaultHTTPTimeout,
+			Transport: &http.Transport{
+				MaxIdleConns:        defaultMaxIdleConns,
+				MaxIdleConnsPerHost: defaultMaxIdleConns,
+				MaxConnsPerHost:     defaultMaxConnsPerHost,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
 		retryInterval: 1 * time.Second,
 	}
 }

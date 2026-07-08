@@ -36,6 +36,7 @@ type NATSConfig struct {
 	DurablePrefix    string   `json:"durablePrefix,optional"`     // JetStream 持久消费者前缀，未设置回退到 Subject
 	AutoProvision    bool     `json:"autoProvision,optional"`     // 自动创建 JetStream Stream
 	SubscribersCount int      `json:"subscribersCount,optional"`  // 并发消费者数量，0 表示单协程
+	MaxAckPending    int      `json:"maxAckPending,optional"`     // 最大未确认消息数，JetStream push 窗口大小
 }
 
 type NacosConfig struct {

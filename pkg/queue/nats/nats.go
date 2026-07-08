@@ -32,10 +32,16 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 		durablePrefix = nconfig.Subject
 	}
 
+	var subOpts []ns.SubOpt
+	if nconfig.MaxAckPending > 0 {
+		subOpts = append(subOpts, ns.MaxAckPending(nconfig.MaxAckPending))
+	}
+
 	jetStreamCfg := nats.JetStreamConfig{
-		Disabled:      false,
-		AutoProvision: nconfig.AutoProvision,
-		DurablePrefix: durablePrefix,
+		Disabled:         false,
+		AutoProvision:    nconfig.AutoProvision,
+		DurablePrefix:    durablePrefix,
+		SubscribeOptions: subOpts,
 	}
 
 	publisher, err := nats.NewPublisherWithNatsConn(connect, nats.PublisherPublishConfig{
