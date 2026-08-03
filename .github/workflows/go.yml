@@ -13,52 +13,46 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. 检出代码
-      - uses: actions/checkout@v5   # 从 @v4 升级到 @v5
+      - uses: actions/checkout@v5   # 已支持 Node.js 24
 
-      # 2. 发送“开始构建”通知（放在最前面）
       - name: 通知 - 构建开始
-        uses: chf007/action-wechat-work@master
-        env:
-          WECHAT_WORK_BOT_WEBHOOK: ${{ secrets }}
-        with:
-          msgtype: 'markdown'
-          content: |
-            ## 🚀 构建开始
-            > **仓库**: ${{ github.repository }}
-            > **分支**: ${{ github.ref_name }}
-            > **提交**: ${{ github.sha }}
-            > **触发者**: ${{ github.actor }}
-            > [查看运行]( ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} )
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+            -d '{
+              "msgtype": "markdown",
+              "markdown": {
+                "content": "## 🚀 构建开始\n> **仓库**: ${{ github.repository }}\n> **分支**: ${{ github.ref_name }}\n> **提交**: ${{ github.sha }}\n> [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+              }
+            }' \
+            ${{ secrets }}
+        shell: bash
 
-      # 3. 设置 Go
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 'stable'
 
-      # 4. 构建
       - name: Build
         run: go build -v ./...
 
-      # 5. 测试
       - name: Test
         run: go test -v ./...
 
-      # 6. 发送“构建完成”通知（无论成功失败，always 保证执行）
       - name: 通知 - 构建完成
-        if: always()   # 关键：无论结果如何都运行
-        uses: chf007/action-wechat-work@master
-        env:
-          WECHAT_WORK_BOT_WEBHOOK: ${{ secrets.WECHAT_WEBHOOK_URL }}
-        with:
-          msgtype: 'markdown'
-          content: |
-            ## 构建完成：${{ job.status }}
-            > **仓库**: ${{ github.repository }}
-            > **分支**: ${{ github.ref_name }}
-            > **提交**: ${{ github.sha }}
-            > **状态**: ${{ job.status }}  <!-- success / failure / cancelled -->
-            > **详情**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            STATUS="✅ 成功"
+          else
+            STATUS="❌ 失败"
+          fi
+          curl -X POST -H "Content-Type: application/json" \
+            -d "{
+              \"msgtype\": \"markdown\",
+              \"markdown\": {
+                \"content\": \"## 构建完成：$STATUS\n> **仓库**: ${{ github.repository }}\n> **分支**: ${{ github.ref_name }}\n> **状态**: ${{ job.status }}\n> [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"
+              }
+            }" \
+            ${{ secrets.WECHAT_WEBHOOK_URL }}
+        shell: bash
