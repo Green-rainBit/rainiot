@@ -25,7 +25,7 @@ jobs:
                 "content": "## 🚀 构建开始\n> **仓库**: ${{ github.repository }}\n> **分支**: ${{ github.ref_name }}\n> **提交**: ${{ github.sha }}\n> [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
               }
             }' \
-            ${{ secrets }}
+            ${{ secrets.WECHAT_WEBHOOK_URL }}
         shell: bash
 
       - name: Set up Go
