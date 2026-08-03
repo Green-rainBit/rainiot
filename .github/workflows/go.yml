@@ -16,7 +16,7 @@ jobs:
 
     steps:
       # 1. 检出代码
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5   # 从 @v4 升级到 @v5
 
       # 2. 发送“开始构建”通知（放在最前面）
       - name: 通知 - 构建开始
