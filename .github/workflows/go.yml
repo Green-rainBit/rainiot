@@ -13,46 +13,69 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5   # 已支持 Node.js 24
 
-      - name: 通知 - 构建开始
+    steps:
+      # 1. 检出代码（使用 Node.js 24 兼容版本）
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # 2. 发送“构建开始”通知（放在最前，仅当 checkout 成功）
+      - name: Notify - Build started
         run: |
-          curl -X POST -H "Content-Type: application/json" \
-            -d '{
-              "msgtype": "markdown",
-              "markdown": {
-                "content": "## 🚀 构建开始\n> **仓库**: ${{ github.repository }}\n> **分支**: ${{ github.ref_name }}\n> **提交**: ${{ github.sha }}\n> [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
-              }
-            }' \
-            ${{ secrets.WECHAT_WEBHOOK_URL }}
+          # 使用 jq 构建 JSON，避免手动转义
+          MSG="## 🚀 构建开始
+          > **仓库**: ${{ github.repository }}
+          > **分支**: ${{ github.ref_name }}
+          > **提交**: ${{ github.sha }}
+          > **触发者**: ${{ github.actor }}
+          > [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          jq -n \
+            --arg content "$MSG" \
+            '{msgtype:"markdown", markdown:{content:$content}}' \
+            | curl -X POST -H "Content-Type: application/json" -d @- "${{ secrets.WECHAT_WEBHOOK_URL }}"
         shell: bash
 
+      # 3. 设置 Go（使用 Node.js 24 兼容版本）
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: '1.23'   # 或 'stable'，根据项目需要
 
+      # 4. 下载依赖（可选，显式执行以确保）
+      - name: Download dependencies
+        run: go mod download
+
+      # 5. 构建
       - name: Build
         run: go build -v ./...
 
+      # 6. 测试
       - name: Test
         run: go test -v ./...
 
-      - name: 通知 - 构建完成
-        if: always()
+      # 7. 发送“构建完成”通知（无论成功、失败、取消都执行）
+      - name: Notify - Build finished
+        if: always()    # 关键：确保总执行
         run: |
+          # 根据 job.status 设置中文状态
           if [ "${{ job.status }}" == "success" ]; then
-            STATUS="✅ 成功"
+            STATUS_TEXT="✅ 成功"
+          elif [ "${{ job.status }}" == "failure" ]; then
+            STATUS_TEXT="❌ 失败"
           else
-            STATUS="❌ 失败"
+            STATUS_TEXT="⏹️ 已取消"
           fi
-          curl -X POST -H "Content-Type: application/json" \
-            -d "{
-              \"msgtype\": \"markdown\",
-              \"markdown\": {
-                \"content\": \"## 构建完成：$STATUS\n> **仓库**: ${{ github.repository }}\n> **分支**: ${{ github.ref_name }}\n> **状态**: ${{ job.status }}\n> [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"
-              }
-            }" \
-            ${{ secrets.WECHAT_WEBHOOK_URL }}
+
+          MSG="## 构建完成：${STATUS_TEXT}
+          > **仓库**: ${{ github.repository }}
+          > **分支**: ${{ github.ref_name }}
+          > **提交**: ${{ github.sha }}
+          > **状态**: ${{ job.status }}
+          > [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          jq -n \
+            --arg content "$MSG" \
+            '{msgtype:"markdown", markdown:{content:$content}}' \
+            | curl -X POST -H "Content-Type: application/json" -d @- "${{ secrets.WECHAT_WEBHOOK_URL }}"
         shell: bash
