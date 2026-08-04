@@ -1,0 +1,86 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  GO111MODULE: on
+  GOPROXY: https://proxy.golang.org,direct
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码（使用 Node.js 24 兼容版本）
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # 2. 发送“构建开始”通知
+      - name: Notify - Build started
+        run: |
+          # 清洗 Webhook URL（去除换行和首尾空格）
+          WEBHOOK_URL="$(echo "${{ secrets.WECHAT_WEBHOOK_URL }}" | tr -d '\n\r' | xargs)"
+          
+          MSG="## 🚀 构建开始
+          > **仓库**: ${{ github.repository }}
+          > **分支**: ${{ github.ref_name }}
+          > **提交**: ${{ github.sha }}
+          > **触发者**: ${{ github.actor }}
+          > [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          jq -n \
+            --arg content "$MSG" \
+            '{msgtype:"markdown", markdown:{content:$content}}' \
+            | curl -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}" || true
+        shell: bash
+
+      # 3. 设置 Go（使用 Node.js 24 兼容版本）
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'   # 根据项目需要调整
+
+      # 4. 下载依赖
+      - name: Download dependencies
+        run: go mod download
+
+      # 5. 构建
+      - name: Build
+        run: go build -v ./...
+
+      # 6. 测试
+      - name: Test
+        run: go test -v ./...
+
+      # 7. 发送“构建完成”通知（无论成功、失败、取消都执行）
+      - name: Notify - Build finished
+        if: always()    # 关键：确保总执行
+        run: |
+          # 清洗 Webhook URL
+          WEBHOOK_URL="$(echo "${{ secrets.WECHAT_WEBHOOK_URL }}" | tr -d '\n\r' | xargs)"
+          
+          # 根据 job.status 设置中文状态
+          if [ "${{ job.status }}" == "success" ]; then
+            STATUS_TEXT="✅ 成功"
+          elif [ "${{ job.status }}" == "failure" ]; then
+            STATUS_TEXT="❌ 失败"
+          else
+            STATUS_TEXT="⏹️ 已取消"
+          fi
+
+          MSG="## 构建完成：${STATUS_TEXT}
+          > **仓库**: ${{ github.repository }}
+          > **分支**: ${{ github.ref_name }}
+          > **提交**: ${{ github.sha }}
+          > **状态**: ${{ job.status }}
+          > [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+
+          jq -n \
+            --arg content "$MSG" \
+            '{msgtype:"markdown", markdown:{content:$content}}' \
+            | curl -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}" || true
+        shell: bash
