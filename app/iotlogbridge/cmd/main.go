@@ -1,8 +1,10 @@
-// Loki Bridge 服务：从 NATS 消费日志消息，批量推送到 Loki。
+// Loki Bridge 服务：从 NATS JetStream 消费日志消息，批量推送到 Loki。
+// JetStream 提供持久化保障：bridge 宕机重连后消息不丢。
 //
 // 架构:
 //
-//	业务服务 ──(NATS)──▶ Bridge ──(HTTP)──▶ Loki
+//	业务服务 ──(JetStream)──▶ Bridge ──(HTTP)──▶ Loki
+//	             持久化         ACK/NAK
 //
 // 用法: logbridge.exe -f etc/logbridge.json
 package main
@@ -14,6 +16,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -61,13 +64,28 @@ type LokiPush struct {
 	Streams []LokiStream `json:"streams"`
 }
 
+// ---- 待确认消息 ----
+
+type pendingMsg struct {
+	msg   *nats.Msg
+	entry LogEntry
+}
+
 // ---- 统计 ----
 
 type stats struct {
-	dropped int64 // 被丢弃的旧日志计数
-	sent    int64 // 成功发送批次计数
-	failed  int64 // 发送失败批次计数
+	dropped int64 // channel 溢出丢弃
+	sent    int64 // 成功推送 Loki 批次
+	failed  int64 // 推送 Loki 失败批次
+	naked   int64 // NAK 重投计数
 }
+
+const (
+	defaultStreamName  = "RAINIOT_LOGS"
+	defaultStreamTTL   = 24 * time.Hour
+	defaultStreamBytes = 5 * 1024 * 1024 * 1024 // 5GB
+	streamAckWait       = 30 * time.Second
+)
 
 var configFile = flag.String("f", "etc/logbridge.json", "config file")
 
@@ -91,6 +109,13 @@ func main() {
 	}
 	defer nc.Drain()
 
+	// JetStream context
+	js, err := nc.JetStream()
+	if err != nil {
+		log.Fatalf("[Bridge] JetStream context: %v", err)
+	}
+
+	// 参数
 	subject := c.Nats.Subject
 	if subject == "" {
 		subject = "rainiot.logs"
@@ -113,43 +138,64 @@ func main() {
 		flushSec = 3
 	}
 
-	// 后台缓冲 + 批量推送
-	ch := make(chan LogEntry, batchSize*2)
+	// 确保 JetStream stream 存在
+	streamName := streamNameFromSubject(subject)
+	if err := ensureStream(js, streamName, subject); err != nil {
+		log.Fatalf("[Bridge] ensure stream: %v", err)
+	}
+
+	// 缓冲 channel
+	ch := make(chan pendingMsg, batchSize*2)
 	st := &stats{}
+
+	// 后台批量推送到 Loki
 	go flushLoop(ch, lokiURL, batchSize, time.Duration(flushSec)*time.Second, st)
 
-	// 定期打印统计信息
+	// 定期统计
 	go func() {
 		for range time.Tick(30 * time.Second) {
-			log.Printf("[Bridge] stats: sent=%d failed=%d dropped=%d", st.sent, st.failed, st.dropped)
+			log.Printf("[Bridge] stats: sent=%d failed=%d dropped=%d naked=%d",
+				st.sent, st.failed, st.dropped, st.naked)
 		}
 	}()
 
-	// 队列订阅 NATS：同 queue group 的实例轮询分摊，一条消息只被一个实例处理
-	nc.QueueSubscribe(subject, queueGroup, func(msg *nats.Msg) {
+	// JetStream 队列订阅：同 queue group 轮询，显式 ACK
+	sub, err := js.QueueSubscribe(subject, queueGroup, func(msg *nats.Msg) {
 		var entry LogEntry
 		if err := json.Unmarshal(msg.Data, &entry); err != nil {
+			msg.Ack() // 无法解析的消息直接 ACK 丢弃
 			return
 		}
-		// 非阻塞写入 channel，满时不阻塞 NATS 消费
 		select {
-		case ch <- entry:
+		case ch <- pendingMsg{msg: msg, entry: entry}:
 		default:
-			// channel 满：丢弃本次日志，不阻塞 NATS 消息处理
+			// channel 满：NAK 延迟重投，不丢消息
+			msg.NakWithDelay(1 * time.Second)
 			st.dropped++
 		}
-	})
+	},
+		nats.AckExplicit(),
+		nats.Durable(queueGroup),
+		nats.MaxAckPending(batchSize*2),
+		nats.AckWait(streamAckWait),
+	)
+	if err != nil {
+		log.Fatalf("[Bridge] JetStream subscribe: %v", err)
+	}
+	defer sub.Unsubscribe()
 
-	log.Printf("[Bridge] Listening on NATS subject=%q queue=%q → Loki %s", subject, queueGroup, lokiURL)
-	log.Printf("[Bridge] Batch: %d entries, Flush: %ds", batchSize, flushSec)
+	log.Printf("[Bridge] Listening on JetStream subject=%q queue=%q → Loki %s",
+		subject, queueGroup, lokiURL)
+	log.Printf("[Bridge] Batch: %d entries, Flush: %ds, AckWait: %s",
+		batchSize, flushSec, streamAckWait)
 
 	// 阻塞
 	select {}
 }
 
-// flushLoop 定时批量推送到 Loki。
-func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Duration, st *stats) {
-	buf := make([]LogEntry, 0, maxSize)
+// flushLoop 定时批量推送到 Loki，成功后 ACK，失败后 NAK 重投。
+func flushLoop(ch <-chan pendingMsg, lokiURL string, maxSize int, interval time.Duration, st *stats) {
+	buf := make([]pendingMsg, 0, maxSize)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -157,17 +203,27 @@ func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Du
 		if len(buf) == 0 {
 			return
 		}
-		if err := pushToLoki(lokiURL, buf); err != nil {
-			log.Printf("[Bridge] push error: %v", err)
+
+		entries := make([]LogEntry, len(buf))
+		for i, p := range buf {
+			entries[i] = p.entry
+		}
+
+		if err := pushToLoki(lokiURL, entries); err != nil {
+			log.Printf("[Bridge] push error: %v, %d entries will be redelivered", err, len(buf))
 			st.failed++
-			// 保留 buffer 重试；超出上限时丢弃最旧的一半以防内存溢出
-			if len(buf) > maxSize*2 {
-				discard := len(buf) / 2
-				buf = append(buf[:0], buf[discard:]...)
-				st.dropped += int64(discard)
-				log.Printf("[Bridge] WARN: buffer overflow, dropped %d oldest entries, remaining %d", discard, len(buf))
+			// NAK 所有待处理消息，延迟重投
+			for _, p := range buf {
+				p.msg.NakWithDelay(5 * time.Second)
 			}
+			st.naked += int64(len(buf))
+			buf = buf[:0]
 			return
+		}
+
+		// 成功：ACK 所有消息
+		for _, p := range buf {
+			p.msg.Ack()
 		}
 		st.sent++
 		buf = buf[:0]
@@ -175,12 +231,12 @@ func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Du
 
 	for {
 		select {
-		case entry, ok := <-ch:
+		case pm, ok := <-ch:
 			if !ok {
 				doFlush()
 				return
 			}
-			buf = append(buf, entry)
+			buf = append(buf, pm)
 			if len(buf) >= maxSize {
 				doFlush()
 			}
@@ -191,7 +247,6 @@ func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Du
 }
 
 // pushToLoki 将日志条目推送到 Loki HTTP API。
-// 按 source_name + job_name + level 分组，保留原始日志时间戳。
 func pushToLoki(url string, entries []LogEntry) error {
 	type streamKey struct {
 		source string
@@ -217,9 +272,7 @@ func pushToLoki(url string, entries []LogEntry) error {
 			streamKeys = append(streamKeys, key)
 		}
 
-		// 解析原始日志时间戳，失败时退化为当前时间
 		ts := parseTimestamp(e.Timestamp)
-
 		line, _ := json.Marshal(map[string]string{
 			"msg":        e.Message,
 			"@timestamp": e.Timestamp,
@@ -254,4 +307,32 @@ func parseTimestamp(s string) time.Time {
 		return time.Now()
 	}
 	return t
+}
+
+// ensureStream 确保 JetStream stream 存在（幂等）。
+func ensureStream(js nats.JetStreamContext, name, subject string) error {
+	_, err := js.StreamInfo(name)
+	if err == nil {
+		return nil
+	}
+
+	_, err = js.AddStream(&nats.StreamConfig{
+		Name:     name,
+		Subjects: []string{subject},
+		Storage:  nats.FileStorage,
+		MaxAge:   defaultStreamTTL,
+		MaxBytes: defaultStreamBytes,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "[Bridge] JetStream stream created: %s (subject=%s)\n", name, subject)
+	return nil
+}
+
+// streamNameFromSubject 从 NATS subject 推导 stream 名称。
+func streamNameFromSubject(subject string) string {
+	s := strings.ReplaceAll(subject, ".", "_")
+	s = strings.ReplaceAll(s, "-", "_")
+	return strings.ToUpper(s)
 }
