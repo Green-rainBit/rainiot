@@ -29,8 +29,9 @@ type Config struct {
 }
 
 type NatsConfig struct {
-	Urls    []string `json:",optional"`
-	Subject string   `json:",default=rainiot.logs"`
+	Urls       []string `json:",optional"`
+	Subject    string   `json:",default=rainiot.logs"`
+	QueueGroup string   `json:",optional,default=iotlogbridge"`
 }
 
 type LokiConfig struct {
@@ -60,6 +61,14 @@ type LokiPush struct {
 	Streams []LokiStream `json:"streams"`
 }
 
+// ---- 统计 ----
+
+type stats struct {
+	dropped int64 // 被丢弃的旧日志计数
+	sent    int64 // 成功发送批次计数
+	failed  int64 // 发送失败批次计数
+}
+
 var configFile = flag.String("f", "etc/logbridge.json", "config file")
 
 func main() {
@@ -86,6 +95,10 @@ func main() {
 	if subject == "" {
 		subject = "rainiot.logs"
 	}
+	queueGroup := c.Nats.QueueGroup
+	if queueGroup == "" {
+		queueGroup = "iotlogbridge"
+	}
 
 	lokiURL := c.Loki.Url
 	if lokiURL == "" {
@@ -102,18 +115,32 @@ func main() {
 
 	// 后台缓冲 + 批量推送
 	ch := make(chan LogEntry, batchSize*2)
-	go flushLoop(ch, lokiURL, batchSize, time.Duration(flushSec)*time.Second)
+	st := &stats{}
+	go flushLoop(ch, lokiURL, batchSize, time.Duration(flushSec)*time.Second, st)
 
-	// 订阅 NATS
-	nc.Subscribe(subject, func(msg *nats.Msg) {
+	// 定期打印统计信息
+	go func() {
+		for range time.Tick(30 * time.Second) {
+			log.Printf("[Bridge] stats: sent=%d failed=%d dropped=%d", st.sent, st.failed, st.dropped)
+		}
+	}()
+
+	// 队列订阅 NATS：同 queue group 的实例轮询分摊，一条消息只被一个实例处理
+	nc.QueueSubscribe(subject, queueGroup, func(msg *nats.Msg) {
 		var entry LogEntry
 		if err := json.Unmarshal(msg.Data, &entry); err != nil {
 			return
 		}
-		ch <- entry
+		// 非阻塞写入 channel，满时不阻塞 NATS 消费
+		select {
+		case ch <- entry:
+		default:
+			// channel 满：丢弃本次日志，不阻塞 NATS 消息处理
+			st.dropped++
+		}
 	})
 
-	log.Printf("[Bridge] Listening on NATS subject=%q → Loki %s", subject, lokiURL)
+	log.Printf("[Bridge] Listening on NATS subject=%q queue=%q → Loki %s", subject, queueGroup, lokiURL)
 	log.Printf("[Bridge] Batch: %d entries, Flush: %ds", batchSize, flushSec)
 
 	// 阻塞
@@ -121,7 +148,7 @@ func main() {
 }
 
 // flushLoop 定时批量推送到 Loki。
-func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Duration) {
+func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Duration, st *stats) {
 	buf := make([]LogEntry, 0, maxSize)
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -132,11 +159,17 @@ func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Du
 		}
 		if err := pushToLoki(lokiURL, buf); err != nil {
 			log.Printf("[Bridge] push error: %v", err)
-			// 失败不丢数据，下次重试（简化实现：内存兜底）
-			if len(buf) < maxSize*4 {
-				return // 保留在 buffer 中等待下次 flush
+			st.failed++
+			// 保留 buffer 重试；超出上限时丢弃最旧的一半以防内存溢出
+			if len(buf) > maxSize*2 {
+				discard := len(buf) / 2
+				buf = append(buf[:0], buf[discard:]...)
+				st.dropped += int64(discard)
+				log.Printf("[Bridge] WARN: buffer overflow, dropped %d oldest entries, remaining %d", discard, len(buf))
 			}
+			return
 		}
+		st.sent++
 		buf = buf[:0]
 	}
 
@@ -158,29 +191,40 @@ func flushLoop(ch <-chan LogEntry, lokiURL string, maxSize int, interval time.Du
 }
 
 // pushToLoki 将日志条目推送到 Loki HTTP API。
+// 按 source_name + job_name + level 分组，保留原始日志时间戳。
 func pushToLoki(url string, entries []LogEntry) error {
-	// 按 source_name + job_name 分组
-	streamsMap := make(map[string]*LokiStream)
-	var streamKeys []string
+	type streamKey struct {
+		source string
+		job    string
+		level  string
+	}
+
+	streamsMap := make(map[streamKey]*LokiStream)
+	var streamKeys []streamKey
 
 	for _, e := range entries {
-		key := e.SourceName + "\x00" + e.JobName
+		key := streamKey{source: e.SourceName, job: e.JobName, level: e.Level}
 		s, ok := streamsMap[key]
 		if !ok {
 			s = &LokiStream{
-				Stream: map[string]string{"source": e.SourceName, "job": e.JobName},
+				Stream: map[string]string{
+					"source": e.SourceName,
+					"job":    e.JobName,
+					"level":  e.Level,
+				},
 			}
 			streamsMap[key] = s
 			streamKeys = append(streamKeys, key)
 		}
+
+		// 解析原始日志时间戳，失败时退化为当前时间
+		ts := parseTimestamp(e.Timestamp)
+
 		line, _ := json.Marshal(map[string]string{
-			"level":      e.Level,
-			"source":     e.SourceName,
 			"msg":        e.Message,
 			"@timestamp": e.Timestamp,
 		})
-		ts := time.Now().UnixNano()
-		s.Values = append(s.Values, []string{fmt.Sprintf("%d", ts), string(line)})
+		s.Values = append(s.Values, []string{fmt.Sprintf("%d", ts.UnixNano()), string(line)})
 	}
 
 	var push LokiPush
@@ -200,4 +244,14 @@ func pushToLoki(url string, entries []LogEntry) error {
 	return nil
 }
 
-
+// parseTimestamp 解析 RFC3339Nano 格式的时间戳，失败返回当前时间。
+func parseTimestamp(s string) time.Time {
+	if s == "" {
+		return time.Now()
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Now()
+	}
+	return t
+}
