@@ -5,13 +5,43 @@ import (
 	"strings"
 )
 
+type OpenConfig struct {
+	ConfigModel   string `json:"configModel,optional"`
+	RegistryModel string `json:"registryModel,optional"`
+
+	ConfigConfig   NacosConfig `json:"configConfig,optional"`
+	RegistryConfig NacosConfig `json:"registryConfig,optional"`
+}
+
+// MQConfig 消息队列配置
+type MQConfig struct {
+	Type     string         `json:"type"` // "rabbitmq" 或 "nats"
+	RabbitMQ RabbitMQConfig `json:"rabbitmq,optional"`
+	NATS     NATSConfig     `json:"nats,optional"`
+}
+
+type RabbitMQConfig struct {
+	Addresses       []string `json:"addresses"`
+	Username        string   `json:"username"`
+	Password        string   `json:"password"`
+	Exchange        string   `json:"exchange"`
+	ExchangeType    string   `json:"exchangeType"`
+	DeclareExchange bool     `json:"declareExchange"`
+}
+
+type NATSConfig struct {
+	Addresses        []string `json:"addresses"`                  // NATS 服务地址列表，多个地址构成集群
+	Subject          string   `json:"subject"`                    // 发布/订阅主题
+	QueueGroupPrefix string   `json:"queueGroupPrefix,optional"`  // 工作队列组名，非空即为工作队列模式
+	DurablePrefix    string   `json:"durablePrefix,optional"`     // JetStream 持久消费者前缀，未设置回退到 Subject
+	AutoProvision    bool     `json:"autoProvision,optional"`     // 自动创建 JetStream Stream
+	SubscribersCount int      `json:"subscribersCount,optional"`  // 并发消费者数量，0 表示单协程
+	MaxAckPending    int      `json:"maxAckPending,optional"`     // 最大未确认消息数，JetStream push 窗口大小
+}
+
 type NacosConfig struct {
-	// NacosSeverConfig []constant.ServerConfig
-	// NacosAppClientConfig constant.ClientConfig
 	IpAddress []string `json:"ipAddress,optional"`
 	Port      uint64   `json:"port,optional"`
-
-	Model string `json:"model,optional"`
 
 	NamespaceId string `json:"namespaceId,optional"`
 	Username    string `json:"username,optional"`

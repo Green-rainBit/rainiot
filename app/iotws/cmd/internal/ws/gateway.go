@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
-	"log"
 	"net"
 	"runtime/debug"
 	"time"
@@ -15,6 +13,7 @@ import (
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -26,6 +25,7 @@ var serverError = []byte("server error")
 
 func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
 	return &Gateway{
+		Logger:     logx.WithContext(context.Background()),
 		connection: conn,
 		redis:      redis,
 		serverName: serverName,
@@ -33,6 +33,7 @@ func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient)
 }
 
 type Gateway struct {
+	logx.Logger
 	serverName string
 	Fn         func(connId string, message []byte) ([]byte, bool, error)
 	connection Connection
@@ -41,26 +42,7 @@ type Gateway struct {
 
 func (c *Gateway) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
-	go func() {
-		timeAfter := time.After(PingInterval)
-
-		<-timeAfter
-		connId, ok := socket.Session().Load("connId")
-		if ok {
-			switch coId := connId.(type) {
-			case string:
-				if coId == "" {
-					c.ServerOnClose(socket, errors.New("timeout"))
-				} else {
-					c.connection.Storage(coId, socket)
-					c.redis.SetXX(context.Background(), cache.GetCacheConn(coId), c.serverName, cache.ConnTime)
-				}
-				SetKeepAlive(socket.NetConn())
-			default:
-
-			}
-		}
-	}()
+	SetKeepAlive(socket.NetConn())
 }
 
 func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
@@ -80,6 +62,21 @@ func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 	socket.NetConn().Close()
 }
 
+// CloseAll 优雅关闭所有 WebSocket 连接。
+// 进程收到关闭信号时由 shutdown listener 调用:对每个连接先发送关闭帧
+// (1001 = Going Away),让设备即时感知并重连到其他节点,再关闭底层连接。
+// WriteClose 内部为 CAS 幂等,重复调用安全;关闭会触发 OnClose 回调,
+// 由其负责清理 redis 中的 connId 缓存与连接表。
+func (c *Gateway) CloseAll() {
+	c.connection.Range(func(key, value any) bool {
+		if socket, ok := value.(*gws.Conn); ok {
+			_ = socket.WriteClose(1001, []byte("server shutting down"))
+			_ = socket.NetConn().Close()
+		}
+		return true
+	})
+}
+
 func (c *Gateway) OnClose(socket *gws.Conn, err error) {
 	connId, ok := socket.Session().Load("connId")
 	if ok {
@@ -94,8 +91,11 @@ func (c *Gateway) OnClose(socket *gws.Conn, err error) {
 }
 
 func (c *Gateway) OnPing(socket *gws.Conn, payload []byte) {
-	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
-	_ = socket.WritePong([]byte{})
+	_, ok := socket.Session().Load("connId")
+	if ok {
+		_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+		_ = socket.WritePong([]byte{})
+	}
 }
 
 func (c *Gateway) OnPong(socket *gws.Conn, payload []byte) {
@@ -108,14 +108,16 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	connId, ok := socket.Session().Load("connId")
 	switch ok {
 	case false:
-		sn := c.extractSn(message.Bytes())
-		by, _, err := c.Fn(sn, message.Bytes())
+		by, _, err := c.Fn("", message.Bytes())
 		if err != nil {
 			defer c.ServerOnClose(socket, err)
 			return
 		}
-
-		socket.Session().Store("connId", sn)
+		sn := c.extractSn(by)
+		if sn != "" {
+			socket.Session().Store("connId", sn)
+			c.connection.Storage(sn, socket)
+		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:
 		by, sync, err := c.Fn(connId.(string), message.Bytes())
@@ -123,7 +125,7 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 			defer socket.WriteMessage(message.Opcode, []byte(err.Error()))
 			return
 		}
-		if sync {
+		if sync && len(by) > 0 {
 			socket.WriteMessage(message.Opcode, by)
 		}
 
@@ -132,12 +134,13 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 
 func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
 	if r := recover(); r != nil {
-		log.Printf("[Recover] %s panic: %v\n%s", ctx, r, debug.Stack())
+		c.Logger.Errorf("[Recover] %s panic: %v, stack: %s", ctx, r, debug.Stack())
 		socket.WriteMessage(gws.OpcodeText, serverError)
 	}
 }
+
 func (c *Gateway) extractSn(payload []byte) string {
-	key := []byte(`"sn":"`)
+	key := []byte(`"connId":"`)
 	i := bytes.Index(payload, key)
 	if i == -1 {
 		return ""

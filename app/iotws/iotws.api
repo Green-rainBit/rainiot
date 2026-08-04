@@ -1,7 +1,7 @@
 syntax = "v1"
 
 type Request {
-	Name string `path:"name,options=you|me"`
+	ConnId string `path:"connId,options=you|me"`
 }
 
 type Response {
@@ -20,9 +20,12 @@ type WsBalanced {
 
 service iotws-api {
 	@handler IotwsHandler
-	get /connect (Request) returns (Response)
+	get /connect (Request)
 
 	@handler IotNoticeHandler
 	post /notice (Ntice)
+
+	@handler IotPingHandler
+	get /ping (Request)
 }
 

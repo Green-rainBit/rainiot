@@ -1,9 +1,8 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package config
 
 import (
+	"rainiot/pkg/log/logloki"
+
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
 )
@@ -11,9 +10,9 @@ import (
 type Config struct {
 	rest.RestConf
 
-	CacheRedis redis.RedisConf
-
+	CacheRedis   redis.RedisConf
 	DeviceServer string
 	DevicePort   int
 	DviceHost    string
+	Loki         logloki.LokiConf `json:",optional"`
 }

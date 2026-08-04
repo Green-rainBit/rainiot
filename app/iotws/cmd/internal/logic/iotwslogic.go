@@ -29,9 +29,9 @@ func NewIotwsLogic(ctx context.Context, deviceCli devicecli.DeviceCli, svc *svc.
 }
 
 func (l *IotwsLogic) Iotws(connId string, message []byte) (by []byte, ok bool, err error) {
-	resp, err := l.deviceCli.Push(l.ctx, connId, message)
+	resp, shouldRespond, err := l.deviceCli.Push(l.ctx, connId, message)
 	if err != nil {
-		return nil, true, err
+		return nil, shouldRespond, err
 	}
-	return resp, true, err
+	return resp, shouldRespond, err
 }

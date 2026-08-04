@@ -1,8 +1,8 @@
 package nacos
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"rainiot/pkg/openconfig"
@@ -14,28 +14,22 @@ import (
 	"time"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
-	"github.com/nacos-group/nacos-sdk-go/v2/clients/config_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/constant"
 	"github.com/nacos-group/nacos-sdk-go/v2/vo"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/rest"
 	"github.com/zeromicro/go-zero/zrpc"
 )
 
-type NacosClient interface {
-}
-
 type nacosClient struct {
+	logx.Logger
 	config    openconfig.NacosConfig
-	confCli   config_client.IConfigClient
 	namingCli naming_client.INamingClient
 	instances sync.Map
 }
 
 func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
-	if config.Model != "nacos" || len(config.IpAddress) == 0 {
-		return nil, nil
-	}
 	nacosConfigs := []constant.ServerConfig{}
 	for _, ipAddress := range config.IpAddress {
 		nacosConfigs = append(nacosConfigs, *constant.NewServerConfig(ipAddress, config.Port))
@@ -56,13 +50,6 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 		),
 		ServerConfigs: nacosConfigs,
 	}
-
-	configClient, err := clients.NewConfigClient(
-		nacosClientParam,
-	)
-	if err != nil {
-		return nil, err
-	}
 	namingClient, err := clients.NewNamingClient(
 		nacosClientParam,
 	)
@@ -71,48 +58,25 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 	}
 	nc := &nacosClient{
 		config:    config,
-		confCli:   configClient,
 		namingCli: namingClient,
 	}
-	go nc.autoRefresh()
+	util.Go(nc.autoRefresh)
 
 	return nc, nil
 
 }
 
-func (l *nacosClient) InitNacosConfig(dataId, group string, onChange func(namespace, group, dataId, data string)) (string, error) {
-	configstring, err := l.confCli.GetConfig(vo.ConfigParam{
-		DataId: dataId,
-		Group:  group,
-	})
-	if err != nil {
-		return "", err
-	}
-	err = l.confCli.ListenConfig(vo.ConfigParam{
-		DataId:   dataId,
-		Group:    group,
-		OnChange: onChange,
-	})
-	if err != nil {
-		return "", err
-	}
-	return configstring, nil
-}
-
-func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfig, c zrpc.RpcServerConf) error {
-	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
-		return nil
-	}
+func (n *nacosClient) InitRegisterInstanceGrpc(c zrpc.RpcServerConf) error {
 	ip, portStr := util.GetGrpcRegistryParameters(c.Name, c.ListenOn)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid gRPC port: %w", err)
 	}
-	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
+	_, err = n.namingCli.RegisterInstance(vo.RegisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
 		ServiceName: c.Name,
-		GroupName:   l.groupOrDefault(config.Group),
+		GroupName:   n.groupOrDefault(n.config.Group),
 		Weight:      10,
 		Enable:      true,
 		Healthy:     true,
@@ -122,23 +86,23 @@ func (l *nacosClient) InitNacosRegisterInstanceGrpc(config openconfig.NacosConfi
 	if err != nil {
 		return fmt.Errorf("failed to register gRPC service: %w", err)
 	}
-	log.Printf("[Nacos] registered gRPC instance: service=%s group=%s ip=%s port=%d", c.Name, l.groupOrDefault(config.Group), ip, port)
+	n.Logger.Info("[Nacos] registered gRPC instance: service=%s group=%s ip=%s port=%d", c.Name, n.groupOrDefault(n.config.Group), ip, port)
 
-	go handleShutdown(l.namingCli, c.Name, ip, port)
+	go handleShutdown(n.namingCli, c.Name, ip, port)
 	return nil
 }
 
-func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c rest.RestConf) error {
+func (n *nacosClient) InitRegisterInstance(c rest.RestConf) error {
 	_, ip, portStr := util.GetRegistryParameters(c)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
 	}
-	_, err = l.namingCli.RegisterInstance(vo.RegisterInstanceParam{
+	_, err = n.namingCli.RegisterInstance(vo.RegisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
-		ServiceName: config.DataId,
-		GroupName:   l.groupOrDefault(config.Group),
+		ServiceName: n.config.DataId,
+		GroupName:   n.groupOrDefault(n.config.Group),
 		Weight:      10,
 		Enable:      true,
 		Healthy:     true,
@@ -148,54 +112,72 @@ func (l *nacosClient) InitNacosRegisterInstance(config openconfig.NacosConfig, c
 	if err != nil {
 		return fmt.Errorf("failed to register service: %w", err)
 	}
-	log.Printf("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", config.DataId, l.groupOrDefault(config.Group), ip, port)
+	n.Logger.Info("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", n.config.DataId, n.groupOrDefault(n.config.Group), ip, port)
 
-	go handleShutdown(l.namingCli, config.DataId, ip, port)
+	go handleShutdown(n.namingCli, n.config.DataId, ip, port)
 	return nil
 }
 
-func (l *nacosClient) groupOrDefault(groupName string) string {
+func (n *nacosClient) groupOrDefault(groupName string) string {
 	if groupName == "" {
 		return "DEFAULT_GROUP"
 	}
 	return groupName
 }
 
-func (l *nacosClient) GetSeverCli(serviceName, groupName string) error {
-	groupName = l.groupOrDefault(groupName)
-	log.Printf("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
-	instances, err := l.namingCli.SelectInstances(vo.SelectInstancesParam{
+func (n *nacosClient) HasSeverCli(serviceName string) (bool, error) {
+	groupName := n.groupOrDefault(n.config.Group)
+	n.Logger.Info("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
+	instances, err := n.namingCli.SelectInstances(vo.SelectInstancesParam{
 		ServiceName: serviceName,
 		GroupName:   groupName,
 		HealthyOnly: true,
 	})
 	if err != nil {
-		log.Printf("[Nacos] SelectInstances error: service=%s group=%s err=%v", serviceName, groupName, err)
+		n.Logger.Info("[Nacos] SelectInstances error: service=%s group=%s err=%v", serviceName, groupName, err)
+		return false, err
+	}
+	if len(instances) > 0 {
+		return true, nil
+	}
+	return false, nil
+}
+
+func (n *nacosClient) GetSeverCli(serviceName string) error {
+	groupName := n.groupOrDefault(n.config.Group)
+	n.Logger.Info("[Nacos] querying instances: service=%s group=%s", serviceName, groupName)
+	instances, err := n.namingCli.SelectInstances(vo.SelectInstancesParam{
+		ServiceName: serviceName,
+		GroupName:   groupName,
+		HealthyOnly: true,
+	})
+	if err != nil {
+		n.Logger.Info("[Nacos] SelectInstances error: service=%s group=%s err=%v", serviceName, groupName, err)
 		return err
 	}
 	addrs := make([]string, 0, len(instances))
 	for _, inst := range instances {
-		log.Printf("[Nacos] found instance: %s:%d healthy=%v enable=%v weight=%f", inst.Ip, inst.Port, inst.Healthy, inst.Enable, inst.Weight)
+		n.Logger.Info("[Nacos] found instance: %s:%d healthy=%v enable=%v weight=%f", inst.Ip, inst.Port, inst.Healthy, inst.Enable, inst.Weight)
 		addrs = append(addrs, fmt.Sprintf("%s:%d", inst.Ip, inst.Port))
 	}
-	log.Printf("[Nacos] total instances found: %d", len(addrs))
-	l.instances.Store(serviceName+":"+groupName, addrs)
+	n.Logger.Info("[Nacos] total instances found: %d", len(addrs))
+	n.instances.Store(serviceName+":"+groupName, addrs)
 	return nil
 }
 
 // autoRefresh 定期刷新
-func (l *nacosClient) autoRefresh() {
+func (n *nacosClient) autoRefresh() {
 	ticker := time.NewTicker(10 * time.Second)
 	for range ticker.C {
-		l.instances.Range(func(key, value any) bool {
+		n.instances.Range(func(key, value any) bool {
 			k := key.(string)
 			arr := strings.Split(k, ":")
 			if len(arr) != 2 {
 				return true
 			}
-			err := l.GetSeverCli(arr[0], arr[1]) // 忽略错误，保留旧列表
+			err := n.GetSeverCli(arr[0]) // 忽略错误，保留旧列表
 			if err != nil {
-				log.Println(err)
+				n.Errorf("[Nacos] autoRefresh error: %v", err)
 			}
 			return true
 		})
@@ -203,15 +185,15 @@ func (l *nacosClient) autoRefresh() {
 }
 
 // GetHealthyInstances 返回当前健康的实例列表（副本）
-func (l *nacosClient) GetHealthyInstances(serviceName string) []string {
-	key := serviceName + ":" + l.config.Group
-	v, ok := l.instances.Load(key)
+func (n *nacosClient) GetHealthyInstances(serviceName string) []string {
+	key := serviceName + ":" + n.config.Group
+	v, ok := n.instances.Load(key)
 	if !ok {
-		if err := l.GetSeverCli(serviceName, l.config.Group); err != nil {
-			log.Println(err)
+		if err := n.GetSeverCli(serviceName); err != nil {
+			n.Errorf("[Nacos] GetHealthyInstances error: %v", err)
 			return nil
 		}
-		v, ok = l.instances.Load(key)
+		v, ok = n.instances.Load(key)
 		if !ok {
 			return nil
 		}
@@ -226,7 +208,7 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 	<-c
-	log.Println("\n[INFO] Shutdown signal received, deregistering...")
+	logx.WithContext(context.Background()).Info("[Nacos] Shutdown signal received, deregistering...")
 	_, err := namingClient.DeregisterInstance(vo.DeregisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
@@ -234,20 +216,17 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 		Ephemeral:   true,
 	})
 	if err != nil {
-		log.Printf("[ERROR] Deregister failed: %v\n", serviceName, err)
+		logx.WithContext(context.Background()).Errorf("[Nacos] Deregister failed: service=%s err=%v", serviceName, err)
 	} else {
-		log.Println("[INFO] Deregistered successfully.", serviceName)
+		logx.WithContext(context.Background()).Infof("[Nacos] Deregistered successfully: service=%s", serviceName)
 	}
 	os.Exit(0)
 }
 
-func (l *nacosClient) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {
-	if l.config.Model != "nacos" || len(l.config.IpAddress) == 0 {
-		return
-	}
-	rpcClientConf.Target = l.config.BuildConfigUrl(serviceName)
+func (n *nacosClient) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {
+	rpcClientConf.Target = n.config.BuildConfigUrl(serviceName)
 }
 
-func (l *nacosClient) GetNacosClient() naming_client.INamingClient {
-	return l.namingCli
+func (n *nacosClient) GetNacosClient() naming_client.INamingClient {
+	return n.namingCli
 }

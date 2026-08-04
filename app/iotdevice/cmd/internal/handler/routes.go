@@ -7,11 +7,13 @@ import (
 	"net/http"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
+	"rainiot/pkg/middleware"
 
 	"github.com/zeromicro/go-zero/rest"
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.Use(middleware.RequestBodyLog)
 	server.AddRoutes(
 		[]rest.Route{
 			{

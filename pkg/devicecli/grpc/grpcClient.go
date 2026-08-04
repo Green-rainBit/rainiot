@@ -35,26 +35,26 @@ func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCl
 	}
 }
 
-func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
+func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
 	req := &pb.DeviceConnectReq{}
 	if err := protojson.Unmarshal(message, req); err != nil {
-		return nil, err
+		return nil, true, err
 	}
 	req.ConnId = connId
 	req.ServiceName = d.serviceName
 
 	_, err := d.client.DeviceConnect(ctx, req)
 	if err == nil {
-		return nil, nil
+		return nil, true, nil
 	}
 	if !isRetryable(err) {
-		return nil, err
+		return nil, true, err
 	}
 
 	for i := 0; i < d.retryCount; i++ {
 		select {
 		case <-ctx.Done():
-			return nil, ctx.Err()
+			return nil, true, ctx.Err()
 		case <-time.After(d.retryInterval):
 		}
 
@@ -62,13 +62,17 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 		_, err = d.client.DeviceConnect(callCtx, req)
 		cancel()
 		if err == nil {
-			return nil, nil
+			return nil, true, nil
 		}
 		if !isRetryable(err) {
-			return nil, err
+			return nil, true, err
 		}
 	}
-	return nil, err
+	return nil, true, err
+}
+
+func (d *deviceGrpcCli) Information() string {
+	return "device grpc client, serviceName: " + d.serviceName
 }
 
 func isRetryable(err error) bool {
@@ -82,4 +86,8 @@ func isRetryable(err error) bool {
 	default:
 		return false
 	}
+}
+
+func (d *deviceGrpcCli) Close() error {
+	return nil
 }

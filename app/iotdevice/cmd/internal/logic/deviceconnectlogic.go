@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
-
 	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/zeromicro/go-zero/core/logx"

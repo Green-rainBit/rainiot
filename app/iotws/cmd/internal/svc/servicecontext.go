@@ -1,6 +1,3 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package svc
 
 import (
@@ -10,12 +7,12 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
-	configcli "rainiot/pkg/configcli"
-	"rainiot/pkg/configcli/nacos"
+	"rainiot/pkg/alarm"
+	"rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli"
 	"rainiot/pkg/devicecli/grpc/instances"
-	"rainiot/pkg/devicecli/grpc/rpcn"
 	"rainiot/pkg/openconfig"
+	"rainiot/pkg/registry"
 	"rainiot/pkg/util"
 
 	"github.com/lxzan/gws"
@@ -32,74 +29,81 @@ type ServiceContext struct {
 	gateway    *ws.Gateway
 }
 
-func NewServiceContext(c *config.Config, nacosconfig openconfig.NacosConfig) *ServiceContext {
+func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
+	cf, ok, err := configcli.SyncConfig(openConfig, func(data string) {
+		unlock := c.Lock()
+		json.Unmarshal([]byte(data), c)
+		unlock()
+	})
+	if err != nil {
+		log.Fatalf("init sync config err: %v", err)
+	}
+	if ok {
+		json.Unmarshal([]byte(cf), c)
+	}
+	registrycli, ok, err := registry.NewRegistry(openConfig)
+	if err != nil {
+		log.Fatalf("init registry err: %v", err)
+	}
+	if ok {
+		registrycli.InitRegisterInstance(c.RestConf)
+	}
 	client := redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	nacosCli, err := nacos.NewNacosClient(nacosconfig)
-	if err != nil {
-		log.Fatalf("init nacos err: %v", err)
-	}
-	var configcli configcli.ConfigCli = c
-	if nacosCli != nil {
-		data, err := nacosCli.InitNacosConfig(nacosconfig.DataId, nacosconfig.Group, func(namespace, group, dataId, data string) {
-			json.Unmarshal([]byte(data), c)
-		})
-		if err != nil {
-			log.Fatalf("init nacos config err: %v", err)
+	configcli := c
+	if registrycli != nil && c.Rpc.Model == "nacos" {
+		if c.Rpc.RpcClientConf.Target == "" {
+			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl("iotdevice.grpc")
 		}
-		json.Unmarshal([]byte(data), c)
-		nacosCli.InitNacosRegisterInstance(nacosconfig, c.RestConf) // 注册服务
-		configcli = nacosCli
-	}
-	// 根据 Rpc.Model 选择 gRPC 服务发现策略：
-	//   "nacos"     → nacos Subscribe 推送模式，实时感知实例上下线
-	//   "instances" → 定时轮询 DeviceServerMap（10s），适用于无 Nacos 环境
-	if nacosCli != nil && c.Rpc.Model == "nacos" {
-		resolver.Register(rpcn.NewBuilder(nacosCli.GetNacosClient()))
-		c.Rpc.RpcClientConf.Target = nacosconfig.BuildConfigUrl("iotdevice.grpc")
 	} else if c.Rpc.Model == "instances" {
 		resolver.Register(instances.NewBuilder(func() []string {
 			return configcli.GetHealthyInstances("iotdevice.grpc")
 		}))
 		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
 	}
+
 	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
+
+	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
 
 	return &ServiceContext{
 		Config:     c,
 		Redis:      client,
 		Connection: connection,
-		DeviceCli:  devicecli.NewDeviceCli("grpc", serviceName, configcli, c.Rpc.RpcClientConf),
+		DeviceCli:  devCli,
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
-			// ParallelEnabled:   true,                                 // 开启并行消息处理
 			Recovery: func(logger gws.Logger) {
 				func() {
 					if r := recover(); r != nil {
 						logger.Error(r)
 					}
-					return
 				}()
-			}, // 开启异常恢复
-			// PermessageDeflate: gws.PermessageDeflate{Enabled: true}, // 开启压缩
+			},
 			NewSession: func() gws.SessionStorage {
 				return gws.NewConcurrentMap[string, any](1)
 			},
-			ReadBufferSize:      512,                                   // 读缓冲区从4KB降到512B，10万连接可节省约700MB内存
-			WriteBufferSize:     512,                                   // 写缓冲区同样降低
-			ParallelEnabled:     false,                                 // 1000 QPS 完全不需要并行处理，可避免 goroutine 数量过多
-			PermessageDeflate:   gws.PermessageDeflate{Enabled: false}, // 开启压缩
-			CheckUtf8Enabled:    false,                                 // 如果消息确定是UTF-8或二进制，可关闭校验以节省CPU
-			ReadMaxPayloadSize:  4096,                                  // 限制最大消息体，防止恶意大包攻击
-			WriteMaxPayloadSize: 4096,
+			ReadBufferSize:      c.WsConf.ReadBufferSize,
+			WriteBufferSize:     c.WsConf.WriteBufferSize,
+			ParallelEnabled:     c.WsConf.ParallelEnabled,
+			ParallelGolimit:     c.WsConf.ParallelGolimit,
+			PermessageDeflate:   gws.PermessageDeflate{Enabled: false},
+			CheckUtf8Enabled:    c.WsConf.CheckUtf8Enabled,
+			ReadMaxPayloadSize:  c.WsConf.ReadMaxPayloadSize,
+			WriteMaxPayloadSize: c.WsConf.WriteMaxPayloadSize,
 		}),
 	}
 }
 
 func (s *ServiceContext) WireWsFn(fn func(connId string, message []byte) ([]byte, bool, error)) {
 	s.gateway.Fn = fn
+}
+
+// CloseWs 优雅关闭所有 WebSocket 连接,委托给 gateway。
+func (s *ServiceContext) CloseWs() {
+	s.gateway.CloseAll()
 }

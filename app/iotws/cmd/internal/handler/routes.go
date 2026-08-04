@@ -6,7 +6,6 @@ package handler
 import (
 	"net/http"
 
-	"rainiot/app/iotws/cmd/internal/middleware"
 	"rainiot/app/iotws/cmd/internal/svc"
 
 	"github.com/zeromicro/go-zero/rest"
@@ -25,7 +24,11 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/notice",
 				Handler: IotNoticeHandler(serverCtx),
 			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/ping",
+				Handler: IotPingHandler(serverCtx),
+			},
 		},
 	)
-	server.Use(middleware.Middleware)
 }

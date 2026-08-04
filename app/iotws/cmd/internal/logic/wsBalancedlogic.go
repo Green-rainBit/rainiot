@@ -29,7 +29,6 @@ func NewWsBalancedHandler(svcCtx *svc.ServiceContext) *wsBalancedHandler {
 }
 
 // every one minute exec : if return err != nil , asynq will retry
-
 func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
 	pub := cache.WsBalancedPublish{}
 	err := json.Unmarshal(task.Payload(), &pub)

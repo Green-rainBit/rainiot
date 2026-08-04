@@ -52,7 +52,7 @@ func (m *Request) GetData() *structpb.Struct {
 }
 
 func (m *Request) GetSn() string {
-	return m.ConnId
+	return m.Sn
 }
 
 func (m *Request) GetConnId() string {
@@ -79,5 +79,8 @@ func (m *Request) Reset() {
 }
 
 type Response struct {
+	Trace   string `json:"trace"`
+	Cmd     string `json:"cmd"`
+	ConnId  string `json:"connId"`
 	Message string `json:"message"`
 }

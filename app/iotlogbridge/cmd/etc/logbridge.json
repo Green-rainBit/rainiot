@@ -1,0 +1,11 @@
+{
+  "Nats": {
+    "Urls": ["nats://localhost:14222"],
+    "Subject": "rainiot.logs"
+  },
+  "Loki": {
+    "Url": "http://localhost:3100",
+    "BatchSize": 5000,
+    "FlushSec": 3
+  }
+}

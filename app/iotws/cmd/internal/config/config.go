@@ -1,10 +1,11 @@
-// Code scaffolded by goctl. Safe to edit.
-// goctl 1.9.2
-
 package config
 
 import (
 	"sync"
+
+	"rainiot/pkg/alarm"
+	"rainiot/pkg/log/logloki"
+	"rainiot/pkg/openconfig"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -13,27 +14,40 @@ import (
 
 type Config struct {
 	rest.RestConf
-
-	// Rpc gRPC 客户端配置。
-	// Model 可选值：
-	//   "nacos"     — 使用 Nacos 服务发现（需配合 nacos 配置文件 model=nacos）
-	//   "instances" — 轮询 DeviceServerMap 获取实例（10s 间隔），支持热更新
-	//   空 / 其他   — 不注册自定义 resolver，走 go-zero 默认直连或 etcd
 	Rpc struct {
 		zrpc.RpcClientConf
 		Model string `json:",optional"`
 	} `json:",optional"`
-	CacheRedis redis.RedisConf
-	// DeviceServerMap 服务实例映射，key 为服务名（如 "iotdevice_api"），value 为地址列表，配置热更新时自动刷新。
-	// 作为 "instances" 模式的数据源。
-	DeviceServerMap sync.Map
+	CacheRedis      redis.RedisConf
+	DeviceServerMap map[string][]string `json:"DeviceServerMap,optional"`
+	Loki            logloki.LokiConf    `json:",optional"`
+	TransportModel  string              `json:",optional"`
+	AlarmConfig     alarm.Config        `json:",optional"`
+	MQ              openconfig.MQConfig `json:"mq,optional"`
+	WsConf          WsConf              `json:",optional"`
+
+	mu sync.RWMutex
+}
+
+// WsConf WebSocket 服务器配置。
+type WsConf struct {
+	ReadBufferSize     int  `json:",default=8192"`
+	WriteBufferSize    int  `json:",default=8192"`
+	ReadMaxPayloadSize  int  `json:",default=8192"`
+	WriteMaxPayloadSize int  `json:",default=8192"`
+	ParallelEnabled    bool `json:",default=true"`
+	ParallelGolimit    int  `json:",default=1024"`
+	CheckUtf8Enabled   bool `json:",default=false"`
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {
-	value, ok := c.DeviceServerMap.Load(serviceName)
-	strings, ok := value.([]string)
-	if !ok {
-		return nil
-	}
-	return strings
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.DeviceServerMap[serviceName]
+}
+
+// Lock 在热更新写入前加锁，返回解锁函数
+func (c *Config) Lock() func() {
+	c.mu.Lock()
+	return c.mu.Unlock
 }

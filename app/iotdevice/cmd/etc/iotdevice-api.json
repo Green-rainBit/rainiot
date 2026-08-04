@@ -6,7 +6,14 @@
     "Mode": "file",
     "Path": "logs/iotdevice-api"
   },
-  "DriverName": "",
+  "Loki": {
+    "Enable": false,
+    "Mode": "direct",
+    "Url": "http://localhost:3100",
+    "SourceName": "iotdevice",
+    "JobName": "rainiot",
+    "Console": true
+  },
   "DataSource": "",
   "CacheRedis": {
     "type": "cluster",
@@ -16,5 +23,19 @@
   "Rpc": {
     "Name": "iotdevice_grpc",
     "ListenOn": "0.0.0.0:9090"
+  },
+  "mq": {
+    "type": "nats",
+    "nats": {
+      "subject": "iot_device",
+      "queueGroupPrefix": "",
+      "durablePrefix": "",
+      "autoProvision": false,
+      "subscribersCount": 0,
+      "maxAckPending": 0,
+      "addresses": [
+        "nats://localhost:14222"
+      ]
+    }
   }
 }
