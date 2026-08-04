@@ -24,6 +24,11 @@ jobs:
         env:
           WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
         run: |
+          if [ -z "${WEBHOOK_URL}" ]; then
+            echo "[WARN] WEBHOOK_URL secret 未配置，跳过通知"
+            exit 0
+          fi
+
           MSG="## 🚀 构建开始
           > **仓库**: ${{ github.repository }}
           > **分支**: ${{ github.ref_name }}
@@ -31,8 +36,16 @@ jobs:
           > **触发者**: ${{ github.actor }}
           > [查看运行](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
-          echo "$MSG" | jq -R -s '{msgtype:"markdown", markdown:{content:.}}' \
-            | curl -s -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}" || true
+          PAYLOAD=$(echo "$MSG" | jq -R -s '{msgtype:"markdown", markdown:{content:.}}')
+          echo "[DEBUG] Webhook URL: ${WEBHOOK_URL%%\?*}"  # 只打印 base，不暴露 key
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" "${WEBHOOK_URL}")
+          HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+          BODY=$(echo "${RESPONSE}" | sed '$d')
+
+          echo "[DEBUG] HTTP ${HTTP_CODE}: ${BODY}"
         shell: bash
 
       # 3. 设置 Go
@@ -59,6 +72,11 @@ jobs:
         env:
           WEBHOOK_URL: ${{ secrets.WECHAT_WEBHOOK_URL }}
         run: |
+          if [ -z "${WEBHOOK_URL}" ]; then
+            echo "[WARN] WEBHOOK_URL secret 未配置，跳过通知"
+            exit 0
+          fi
+
           # 根据 job.status 设置中文状态
           if [ "${{ job.status }}" == "success" ]; then
             STATUS_TEXT="✅ 成功"
@@ -75,6 +93,14 @@ jobs:
           > **状态**: ${{ job.status }}
           > [查看详情](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
 
-          echo "$MSG" | jq -R -s '{msgtype:"markdown", markdown:{content:.}}' \
-            | curl -s -X POST -H "Content-Type: application/json" -d @- "${WEBHOOK_URL}" || true
+          PAYLOAD=$(echo "$MSG" | jq -R -s '{msgtype:"markdown", markdown:{content:.}}')
+          echo "[DEBUG] Webhook URL: ${WEBHOOK_URL%%\?*}"
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            -H "Content-Type: application/json" \
+            -d "${PAYLOAD}" "${WEBHOOK_URL}")
+          HTTP_CODE=$(echo "${RESPONSE}" | tail -1)
+          BODY=$(echo "${RESPONSE}" | sed '$d')
+
+          echo "[DEBUG] HTTP ${HTTP_CODE}: ${BODY}"
         shell: bash
