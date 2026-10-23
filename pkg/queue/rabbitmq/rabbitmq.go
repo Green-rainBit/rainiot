@@ -13,15 +13,16 @@ import (
 )
 
 type rabbitmqcilent struct {
-	conn      *rabbitmq.Conn
-	publisher *rabbitmq.Publisher
-	exchange  string
-	kind      string
-	mu        sync.Mutex
-	closed    bool
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
+	conn            *rabbitmq.Conn
+	publisher       *rabbitmq.Publisher
+	exchange        string
+	mu              sync.Mutex
+	closed          bool
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	declareExchange bool
+	exchangeType    string
 }
 
 func NewRabbitMQConnect(rconfig openconfig.RabbitMQConfig, logger watermill.LoggerAdapter) (*rabbitmqcilent, error) {
@@ -38,8 +39,40 @@ func NewRabbitMQConnect(rconfig openconfig.RabbitMQConfig, logger watermill.Logg
 	if err != nil {
 		return nil, err
 	}
+	pubOpts := []func(*rabbitmq.PublisherOptions){
+		rabbitmq.WithPublisherOptionsExchangeName(rconfig.Exchange),
+	}
+	if rconfig.ExchangeType != "" {
+		pubOpts = append(pubOpts, rabbitmq.WithPublisherOptionsExchangeKind(rconfig.ExchangeType))
+	} else {
+		pubOpts = append(pubOpts, rabbitmq.WithPublisherOptionsExchangeKind("direct"))
+	}
+	if rconfig.Exchange != "" && rconfig.DeclareExchange {
+		pubOpts = append(pubOpts,
+			rabbitmq.WithPublisherOptionsExchangeDeclare,
+			rabbitmq.WithPublisherOptionsExchangeDurable,
+		)
+	}
+	publisher, err := rabbitmq.NewPublisher(
+		conn,
+		pubOpts...,
+	)
+	if err != nil {
+		_ = conn.Close()
+		return nil, err
+	}
+	runCtx, cancel := context.WithCancel(context.Background())
 	return &rabbitmqcilent{
-		conn: conn,
+		conn:            conn,
+		publisher:       publisher,
+		exchange:        rconfig.Exchange,
+		exchangeType:    rconfig.ExchangeType,
+		declareExchange: rconfig.DeclareExchange,
+		mu:              sync.Mutex{},
+		closed:          false,
+		ctx:             runCtx,
+		wg:              sync.WaitGroup{},
+		cancel:          cancel,
 	}, nil
 
 }
@@ -75,100 +108,29 @@ func (q *rabbitmqcilent) Publish(topic string, messages ...*message.Message) err
 	return nil
 }
 
-// Subscribe 订阅并返回 Watermill 消息通道
-// func (q *rabbitmqcilent) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
-// 	// 内部通道，用于将 AMQP Delivery 转换为 Watermill Message
-// 	ch := make(chan *message.Message, 100)
-
-// 	// 创建消费者（工作队列模式：所有消费者共享同一队列）
-// 	consumer, err := rabbitmq.NewConsumer(
-// 		q.conn,
-// 		topic, // 固定队列名
-// 		rabbitmq.WithConsumerOptionsExchangeName(q.exchange),
-// 		rabbitmq.WithConsumerOptionsExchangeKind(q.kind),
-// 		rabbitmq.WithConsumerOptionsExchangeDeclare,
-// 		rabbitmq.WithConsumerOptionsQueueDurable,
-// 		rabbitmq.WithConsumerOptionsConcurrency(5),
-// 		rabbitmq.WithConsumerOptionsQOSPrefetch(10),
-// 	)
-// 	if err != nil {
-// 		close(ch)
-// 		return nil, err
-// 	}
-
-// 	// 启动消费循环
-// 	q.wg.Add(1)
-// 	go func() {
-// 		defer q.wg.Done()
-// 		defer close(ch)
-// 		defer consumer.Close()
-
-// 		// 这里使用 StartConsuming 的循环，当 ctx 取消时停止
-// 		err := consumer.Run(
-// 			func(d rabbitmq.Delivery) rabbitmq.Action {
-// 				// 构造 Watermill Message
-// 				msg := message.NewMessage(watermill.NewUUID(), d.Body)
-// 				// 复制 Headers 到 Metadata
-// 				for k, v := range d.Headers {
-// 					if str, ok := v.(string); ok {
-// 						msg.Metadata.Set(k, str)
-// 					}
-// 				}
-
-// 				select {
-// 				case ch <- msg:
-// 					select {
-// 					case <-msg.Acked():
-// 						return rabbitmq.Ack
-// 					case <-msg.Nacked():
-// 						return rabbitmq.NackRequeue
-// 					}
-// 				case <-ctx.Done():
-// 					return rabbitmq.NackRequeue
-// 				}
-// 			},
-// 		)
-// 		if err != nil && err != context.Canceled {
-// 			// 记录错误，可考虑重试
-// 		}
-// 	}()
-
-// 	return ch, nil
-// }
-
 // Subscribe 订阅主题，返回消息通道（工作队列模式：所有订阅者共享同一队列）
-func (c *rabbitmqcilent) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
+func (q *rabbitmqcilent) Subscribe(ctx context.Context, topic string) (<-chan *message.Message, error) {
 	ch := make(chan *message.Message, 100) // 带缓冲通道
 
 	// 合并外部 ctx 和内部 ctx，任一取消则退出
-	ctx, cancel := context.WithCancel(c.ctx)
+	ctx, cancel := context.WithCancel(ctx)
 	go func() {
 		select {
 		case <-ctx.Done():
-			cancel()
-		case <-c.ctx.Done():
-			cancel()
-		}
-	}()
-	// 等待外部 ctx 取消
-	go func() {
-		select {
-		case <-ctx.Done():
-			cancel()
-		case <-c.ctx.Done():
+		case <-q.ctx.Done():
 			cancel()
 		}
 	}()
 
-	c.wg.Add(1)
-	go c.consumeLoop(ctx, topic, ch, cancel)
+	q.wg.Add(1)
+	go q.consumeLoop(ctx, topic, ch, cancel)
 
 	return ch, nil
 }
 
 // consumeLoop 内部消费循环，自动重连
-func (c *rabbitmqcilent) consumeLoop(ctx context.Context, topic string, ch chan *message.Message, cancel context.CancelFunc) {
-	defer c.wg.Done()
+func (q *rabbitmqcilent) consumeLoop(ctx context.Context, topic string, ch chan *message.Message, cancel context.CancelFunc) {
+	defer q.wg.Done()
 	defer close(ch)
 	defer cancel()
 
@@ -178,16 +140,23 @@ func (c *rabbitmqcilent) consumeLoop(ctx context.Context, topic string, ch chan 
 			return
 		default:
 		}
-
-		// 创建消费者（每次重连重新创建）
-		consumer, err := rabbitmq.NewConsumer(
-			c.conn,
-			topic, // 固定队列名，实现工作队列
-			rabbitmq.WithConsumerOptionsExchangeName(c.exchange),
-			rabbitmq.WithConsumerOptionsExchangeDeclare,
+		opts := []func(*rabbitmq.ConsumerOptions){
+			rabbitmq.WithConsumerOptionsExchangeName(q.exchange),
+			rabbitmq.WithConsumerOptionsRoutingKey(topic),
 			rabbitmq.WithConsumerOptionsQueueDurable,
 			rabbitmq.WithConsumerOptionsQOSPrefetch(10),
-		)
+		}
+		if q.exchangeType == "" {
+			opts = append(opts, rabbitmq.WithConsumerOptionsExchangeKind("direct"))
+		} else {
+			opts = append(opts, rabbitmq.WithConsumerOptionsExchangeKind(q.exchangeType))
+		}
+		if q.exchange != "" && q.declareExchange {
+			opts = append(opts, rabbitmq.WithConsumerOptionsExchangeDeclare)
+		}
+		// 创建消费者（每次重连重新创建）
+		consumer, err := rabbitmq.NewConsumer(q.conn, topic, opts...)
+
 		if err != nil {
 			// 创建失败，等待后重试
 			select {
@@ -197,6 +166,20 @@ func (c *rabbitmqcilent) consumeLoop(ctx context.Context, topic string, ch chan 
 			}
 			continue
 		}
+		var stopOnce sync.Once
+		// 方案 A：关闭时给超时
+		stop := func() {
+			stopOnce.Do(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				consumer.CloseWithContext(ctx)
+			})
+		}
+
+		go func() {
+			<-ctx.Done()
+			stop()
+		}()
 
 		// 开始消费
 		err = consumer.Run(func(d rabbitmq.Delivery) rabbitmq.Action {
@@ -214,9 +197,8 @@ func (c *rabbitmqcilent) consumeLoop(ctx context.Context, topic string, ch chan 
 				return rabbitmq.NackRequeue
 			}
 		}) // 并发数，可根据需要调整
-
+		stop()
 		// 关闭消费者（无论成功还是失败）
-		consumer.Close()
 
 		if err != nil {
 			// 消费出错，短暂等待后重试

@@ -220,7 +220,6 @@ func handleShutdown(namingClient naming_client.INamingClient, serviceName, ip st
 	} else {
 		logx.WithContext(context.Background()).Infof("[Nacos] Deregistered successfully: service=%s", serviceName)
 	}
-	os.Exit(0)
 }
 
 func (n *nacosClient) SetGrpcConfig(serviceName string, rpcClientConf *zrpc.RpcClientConf) {

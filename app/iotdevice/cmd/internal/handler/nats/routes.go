@@ -36,11 +36,11 @@ var cmdWorkers = map[string]cmdWorkerConfig{
 // 调用方（main）必须在它返回后继续启动 HTTP/gRPC 服务，切勿在此阻塞。
 func StartRouter(svcCtx *svc.ServiceContext) {
 	if svcCtx.Queue == nil {
-		logx.Error("[NATS] svcCtx is nil")
+		logx.Info("[NATS] MQ 未配置或初始化失败，跳过消费者启动")
 		return
 	}
 	logger := logx.WithContext(context.Background())
-	subject := svcCtx.Config.MQ.NATS.Subject
+	subject := svcCtx.Config.MQ.Topic
 
 	// ── Consumer 1: 入口路由 ──
 	ingressConsumer, err := svcCtx.Queue.Subscribe(context.Background(), subject)
@@ -65,7 +65,7 @@ func StartRouter(svcCtx *svc.ServiceContext) {
 
 	// ── Consumer 2: 按 cmd 的并行消费者 ──
 	for cmd, cfg := range cmdWorkers {
-		cmdSubject := subject + "_" + cmd
+		cmdSubject := subject + "." + cmd
 		consumer, err := svcCtx.Queue.Subscribe(context.Background(), cmdSubject)
 		if err != nil {
 			logger.Errorf("[NATS] cmd=%s 消费者创建失败 subject=%s: %v", cmd, cmdSubject, err)

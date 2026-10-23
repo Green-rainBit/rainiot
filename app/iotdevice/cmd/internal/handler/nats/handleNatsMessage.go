@@ -16,7 +16,7 @@ func HandleAllNatsMessage(svcCtx *svc.ServiceContext, msg *message.Message) erro
 		msg.Ack()
 		return nil
 	}
-	subject := svcCtx.Config.MQ.NATS.Subject
+	subject := svcCtx.Config.MQ.Topic
 
 	// 检查 cmd 是否已注册（未注册的 cmd 丢弃并 Ack）
 	if _, ok := cmdWorkers[cmd]; !ok {
@@ -24,7 +24,7 @@ func HandleAllNatsMessage(svcCtx *svc.ServiceContext, msg *message.Message) erro
 		return nil
 	}
 
-	newSubject := subject + "_" + cmd
+	newSubject := subject + "." + cmd
 	if err := svcCtx.Queue.Publish(newSubject, msg); err != nil {
 		return err
 	}

@@ -19,6 +19,7 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/nats-io/nats.go/jetstream"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
@@ -66,7 +67,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	})
 	mq, err := queue.NewBrokerFromConfig(context.Background(), &c.MQ)
 	if err != nil {
-		log.Println("new broker from fonfig: ", err)
+		logx.Errorf("new broker from config: %v", err)
 	}
 	svcCtx := &ServiceContext{
 		Config:      c,

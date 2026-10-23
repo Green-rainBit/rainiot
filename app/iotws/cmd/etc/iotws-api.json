@@ -25,8 +25,8 @@
   "DeviceServerMap": {},
   "mq": {
     "type": "nats",
+    "topic": "iot_device",
     "nats": {
-      "subject": "iot_device",
       "queueGroupPrefix": "",
       "durablePrefix": "",
       "autoProvision": false,

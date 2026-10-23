@@ -31,9 +31,11 @@ func (f *fakeQueue) Close() error { return nil }
 func TestStartRouterReturns(t *testing.T) {
 	svcCtx := &svc.ServiceContext{
 		Config: &config.Config{
+
 			MQ: openconfig.MQConfig{
-				Type: "nats",
-				NATS: openconfig.NATSConfig{Subject: "iot_device_test"},
+				Type:  "nats",
+				Topic: "iot_device_test",
+				NATS:  openconfig.NATSConfig{},
 			},
 		},
 		Queue: &fakeQueue{},

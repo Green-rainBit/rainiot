@@ -215,7 +215,7 @@ func closeIfPossible(cli DeviceCli) {
 
 // rebuildChain 按优先级 grpc → nats → http 重建链。
 func (d *deviceCli) rebuildChain() {
-	d.chain = d.chain[:0]
+	d.chain = make([]DeviceCli, 0, 3)
 	if d.grpc != nil {
 		d.chain = append(d.chain, d.grpc)
 	}

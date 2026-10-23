@@ -34,9 +34,12 @@ func NewDeviceCli(serviceName string, cfg *openconfig.MQConfig) (*deviceNatsCli,
 	if err != nil {
 		return nil, err
 	}
+	if conn == nil {
+		return nil, ErrNatsNotConnected
+	}
 	d := &deviceNatsCli{
 		conn:        conn,
-		subject:     cfg.NATS.Subject,
+		subject:     cfg.Topic,
 		serviceName: serviceName,
 		retryCount:  defaultRetryCount,
 		retryWait:   defaultRetryWait,

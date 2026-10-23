@@ -189,8 +189,6 @@ func main() {
 	log.Printf("[Bridge] Batch: %d entries, Flush: %ds, AckWait: %s",
 		batchSize, flushSec, streamAckWait)
 
-	// 阻塞
-	select {}
 }
 
 // flushLoop 定时批量推送到 Loki，成功后 ACK，失败后 NAK 重投。

@@ -15,7 +15,8 @@ type OpenConfig struct {
 
 // MQConfig 消息队列配置
 type MQConfig struct {
-	Type     string         `json:"type"` // "rabbitmq" 或 "nats"
+	Type     string         `json:"type"`           // "rabbitmq" 或 "nats"
+	Topic    string         `json:"topic,optional"` // 发布/订阅主题 rabbitmq对应队列
 	RabbitMQ RabbitMQConfig `json:"rabbitmq,optional"`
 	NATS     NATSConfig     `json:"nats,optional"`
 }
@@ -30,13 +31,12 @@ type RabbitMQConfig struct {
 }
 
 type NATSConfig struct {
-	Addresses        []string `json:"addresses"`                  // NATS 服务地址列表，多个地址构成集群
-	Subject          string   `json:"subject"`                    // 发布/订阅主题
-	QueueGroupPrefix string   `json:"queueGroupPrefix,optional"`  // 工作队列组名，非空即为工作队列模式
-	DurablePrefix    string   `json:"durablePrefix,optional"`     // JetStream 持久消费者前缀，未设置回退到 Subject
-	AutoProvision    bool     `json:"autoProvision,optional"`     // 自动创建 JetStream Stream
-	SubscribersCount int      `json:"subscribersCount,optional"`  // 并发消费者数量，0 表示单协程
-	MaxAckPending    int      `json:"maxAckPending,optional"`     // 最大未确认消息数，JetStream push 窗口大小
+	Addresses        []string `json:"addresses"`                 // NATS 服务地址列表，多个地址构成集群
+	QueueGroupPrefix string   `json:"queueGroupPrefix,optional"` // 工作队列组名，非空即为工作队列模式
+	DurablePrefix    string   `json:"durablePrefix,optional"`    // JetStream 持久消费者前缀，未设置回退到 Subject
+	AutoProvision    bool     `json:"autoProvision,optional"`    // 自动创建 JetStream Stream
+	SubscribersCount int      `json:"subscribersCount,optional"` // 并发消费者数量，0 表示单协程
+	MaxAckPending    int      `json:"maxAckPending,optional"`    // 最大未确认消息数，JetStream push 窗口大小
 }
 
 type NacosConfig struct {

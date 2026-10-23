@@ -16,7 +16,7 @@ type natscilent struct {
 	*nats.Subscriber
 }
 
-func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapter) (*natscilent, error) {
+func NewNatsConnect(nconfig openconfig.NATSConfig, topic string, logger watermill.LoggerAdapter) (*natscilent, error) {
 	connect, err := ns.Connect(strings.Join(nconfig.Addresses, ","),
 		ns.MaxReconnects(-1),
 		ns.ReconnectWait(3*time.Second),
@@ -29,7 +29,7 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 	// DurablePrefix 未设置时回退到 Subject，保证兼容
 	durablePrefix := nconfig.DurablePrefix
 	if durablePrefix == "" {
-		durablePrefix = nconfig.Subject
+		durablePrefix = topic
 	}
 
 	var subOpts []ns.SubOpt
@@ -43,8 +43,8 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, logger watermill.LoggerAdapte
 		js, err := connect.JetStream()
 		if err == nil {
 			_, err = js.AddStream(&ns.StreamConfig{
-				Name:     nconfig.Subject,
-				Subjects: []string{nconfig.Subject, nconfig.Subject + ".>"},
+				Name:     topic,
+				Subjects: []string{topic, topic + ".>"},
 			})
 			if err != nil {
 				logger.Error("NATS AddStream warning (stream may already exist)", err, nil)
