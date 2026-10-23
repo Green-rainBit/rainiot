@@ -49,7 +49,10 @@ func main() {
 
 	handler.RegisterHandlers(server, ctx)
 
-	cr := cron.New(cron.WithSeconds())
+	cr := cron.New(cron.WithSeconds(), cron.WithChain(
+		cron.Recover(logWriter),
+		cron.SkipIfStillRunning(logWriter),
+	))
 	handler.RegisterCron(cr, ctx)
 	cr.Start()
 

@@ -7,8 +7,8 @@ import (
 	"rainiot/app/iotcron/cmd/internal/config"
 	"rainiot/app/iotcron/cmd/internal/logic"
 	"rainiot/app/iotcron/cmd/internal/svc"
-	"rainiot/pkg/openconfig"
 	plog "rainiot/pkg/log"
+	"rainiot/pkg/openconfig"
 
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -36,6 +36,6 @@ func main() {
 	}
 
 	svcCtx := svc.NewServiceContext(c)
-	mux := logic.NewCronJob(context.Background(), svcCtx).Register()
+	mux := logic.NewCronJob(context.Background(), svcCtx).Register(logWriter)
 	mux.Run()
 }

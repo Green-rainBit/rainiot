@@ -10,8 +10,30 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+type Loggerx interface {
+	Info(msg string, keysAndValues ...interface{})
+	Error(err error, msg string, keysAndValues ...interface{})
+	Close() error
+}
+
+type cronLogger struct {
+	logx.Writer
+}
+
+func (c cronLogger) Info(msg string, kv ...any) {
+	logx.Infof("%s %v", msg, kv)
+}
+
+func (c cronLogger) Error(err error, msg string, kv ...any) {
+	logx.Errorf("%s: %v %v", msg, err, kv)
+}
+
+func (c cronLogger) Close() error {
+	return c.Close()
+}
+
 // Setup 根据配置设置日志系统。
-func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (logx.Writer, error) {
+func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (Loggerx, error) {
 	if lokiConf.Console {
 		logConf.Mode = "console" // go-zero 原生控制台输出
 	}
@@ -35,7 +57,10 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 
 	multi := logmulti.NewMultiWriter(remoteWriter)
 	logx.SetWriter(multi)
-	return multi, nil
+
+	return cronLogger{
+		multi,
+	}, nil
 }
 
 func newBridgeWriter(cfg logloki.LokiConf, natsUrls []string) (logx.Writer, error) {
