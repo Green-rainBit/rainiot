@@ -6,6 +6,7 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/pkg/devicecli/grpc/pb"
+	"rainiot/pkg/util"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -30,7 +31,14 @@ var cmdWorkers = map[string]cmdWorkerConfig{
 //   - consumer 2 (iot_device_login): 并行消费，sema 控制并发 → protojson → logic.Iotdevice
 //
 // 二次分发保留 NATS 队列组的 cmd 隔离能力，但第二级消费者改为 sema + go func 并行处理。
+//
+// StartRouter 只负责启动消费者，启动完成后立即返回；消费循环在后台 goroutine 中运行。
+// 调用方（main）必须在它返回后继续启动 HTTP/gRPC 服务，切勿在此阻塞。
 func StartRouter(svcCtx *svc.ServiceContext) {
+	if svcCtx.Queue == nil {
+		logx.Error("[NATS] svcCtx is nil")
+		return
+	}
 	logger := logx.WithContext(context.Background())
 	subject := svcCtx.Config.MQ.NATS.Subject
 
@@ -42,16 +50,18 @@ func StartRouter(svcCtx *svc.ServiceContext) {
 	}
 	logger.Infof("[NATS] 入口消费者启动: subject=%s", subject)
 
-	go func() {
+	util.Go(func() {
 		for msg := range ingressConsumer {
-			go func(ms *message.Message) {
-				if err := HandleAllNatsMessage(svcCtx, ms); err != nil {
-					logger.Errorf("[NATS] 入口路由失败: %v", err)
-					ms.Nack()
-				}
-			}(msg)
+			util.Go(func() {
+				func(ms *message.Message) {
+					if err := HandleAllNatsMessage(svcCtx, ms); err != nil {
+						logger.Errorf("[NATS] 入口路由失败: %v", err)
+						ms.Nack()
+					}
+				}(msg)
+			})
 		}
-	}()
+	})
 
 	// ── Consumer 2: 按 cmd 的并行消费者 ──
 	for cmd, cfg := range cmdWorkers {
@@ -64,23 +74,23 @@ func StartRouter(svcCtx *svc.ServiceContext) {
 		sema := make(chan struct{}, cfg.concurrency)
 		logger.Infof("[NATS] cmd=%s 消费者启动: subject=%s concurrency=%d", cmd, cmdSubject, cfg.concurrency)
 
-		go func() {
+		util.Go(func() {
 			for msg := range consumer {
 				sema <- struct{}{}
-				go func(ms *message.Message) {
-					defer func() { <-sema }()
-					if err := processMessage(ms, svcCtx); err != nil {
-						logger.Errorf("[NATS] cmd=%s 处理失败: %v", cmd, err)
-						ms.Nack()
-						return
-					}
-					ms.Ack()
-				}(msg)
+				util.Go(func() {
+					func(ms *message.Message) {
+						defer func() { <-sema }()
+						if err := processMessage(ms, svcCtx); err != nil {
+							logger.Errorf("[NATS] cmd=%s 处理失败: %v", cmd, err)
+							ms.Nack()
+							return
+						}
+						ms.Ack()
+					}(msg)
+				})
 			}
-		}()
+		})
 	}
-
-	select {}
 }
 
 func processMessage(msg *message.Message, svcCtx *svc.ServiceContext) error {

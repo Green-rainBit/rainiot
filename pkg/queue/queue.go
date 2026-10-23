@@ -29,7 +29,6 @@ func NewBrokerFromConfig(ctx context.Context, cfg *openconfig.MQConfig) (Queue, 
 		return queue, err
 	case "nats":
 		return nats.NewNatsConnect(cfg.NATS, logger)
-
 	default:
 		return nil, fmt.Errorf("unsupported MQ type: %s", cfg.Type)
 	}

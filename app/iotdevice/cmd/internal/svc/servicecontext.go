@@ -66,7 +66,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	})
 	mq, err := queue.NewBrokerFromConfig(context.Background(), &c.MQ)
 	if err != nil {
-		log.Fatalf("new broker from fonfig: %v", err)
+		log.Println("new broker from fonfig: ", err)
 	}
 	svcCtx := &ServiceContext{
 		Config:      c,
