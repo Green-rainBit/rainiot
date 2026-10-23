@@ -51,6 +51,7 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 		}
 		totalws += wsBalancedMap[key]
 	}
+	l.IotwsBalanced(wsBalancedMap, totalws)
 }
 
 func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws int) {
@@ -108,7 +109,10 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 			ReceiveWsserver:       val.ReceiveWsserver,
 			ReceiveWsserverAmount: val.ReceiveWsserverAmount,
 		}
-		l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), pub)
+		err := l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), pub)
+		if err != nil {
+			l.Logger.Error(fmt.Sprintf("publish error: %v", err))
+		}
 	}
 
 }
