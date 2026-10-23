@@ -32,7 +32,7 @@ func (l *iotsyncLogic) Iotsync() {
 	key := cache.GetWsBalancedPublishCache(l.svcCtx.Config.Name)
 	value := l.svcCtx.Connection.GetNumber()
 	expiration := time.Duration(5) * time.Second
-	err := l.svcCtx.Redis.SetXX(l.ctx, key, value, expiration).Err()
+	err := l.svcCtx.Redis.Set(l.ctx, key, value, expiration).Err()
 	if err != nil {
 		l.Logger.Error(fmt.Sprintf("iotsyncLogic iotsync setxx error: %v", err))
 	}

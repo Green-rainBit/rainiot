@@ -17,7 +17,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -84,7 +86,7 @@ const (
 	defaultStreamName  = "RAINIOT_LOGS"
 	defaultStreamTTL   = 24 * time.Hour
 	defaultStreamBytes = 5 * 1024 * 1024 * 1024 // 5GB
-	streamAckWait       = 30 * time.Second
+	streamAckWait      = 30 * time.Second
 )
 
 var configFile = flag.String("f", "etc/logbridge.json", "config file")
@@ -189,6 +191,9 @@ func main() {
 	log.Printf("[Bridge] Batch: %d entries, Flush: %ds, AckWait: %s",
 		batchSize, flushSec, streamAckWait)
 
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
 }
 
 // flushLoop 定时批量推送到 Loki，成功后 ACK，失败后 NAK 重投。

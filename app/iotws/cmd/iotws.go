@@ -12,6 +12,7 @@ import (
 	plog "rainiot/pkg/log"
 	"rainiot/pkg/openconfig"
 
+	"github.com/hibiken/asynq"
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/proc"
@@ -56,11 +57,24 @@ func main() {
 	handler.RegisterCron(cr, ctx)
 	cr.Start()
 
+	mux := handler.Register(ctx)
+	srv := asynq.NewServer(
+		asynq.RedisClientOpt{Addr: c.CacheRedis.Host, Password: c.CacheRedis.Pass},
+		asynq.Config{
+			Concurrency: 10, // 并发 worker 数
+		},
+	)
+	go func() {
+		if err := srv.Run(mux); err != nil {
+			log.Fatalf("Server 运行失败: %v", err)
+		}
+	}()
 	// 注册优雅关闭:收到 SIGTERM/SIGINT 时,关闭 ws 长连接并停止 cron 调度。
 	// 该回调与 go-zero 的 HTTP 优雅关闭并发执行,共享默认 ~4.5s 宽限期。
 	proc.AddShutdownListener(func() {
 		ctx.CloseWs()
 		cr.Stop()
+		srv.Shutdown()
 	})
 
 	server.Start()

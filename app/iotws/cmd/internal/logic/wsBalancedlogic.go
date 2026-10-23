@@ -38,7 +38,7 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 	if float64(l.svcCtx.Connection.GetNumber())-float64(pub.Meanws) < 20 {
 		return nil
 	}
-	percentage := float64(l.svcCtx.Connection.GetNumber()) - float64(pub.Meanws)/float64(pub.Meanws)
+	percentage := (float64(l.svcCtx.Connection.GetNumber()) - float64(pub.Meanws)) / float64(pub.Meanws)
 	if percentage < 0.1 {
 		return nil
 	}

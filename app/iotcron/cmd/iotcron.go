@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"flag"
+	"os/signal"
+	"syscall"
 
 	"rainiot/app/iotcron/cmd/internal/config"
 	"rainiot/app/iotcron/cmd/internal/logic"
@@ -37,5 +39,11 @@ func main() {
 
 	svcCtx := svc.NewServiceContext(c)
 	mux := logic.NewCronJob(context.Background(), svcCtx).Register(logWriter)
-	mux.Run()
+	mux.Start()
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	<-ctx.Done()
+	<-mux.Stop().Done() // 等待在途任务
+
 }

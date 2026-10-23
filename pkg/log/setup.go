@@ -16,21 +16,27 @@ type Loggerx interface {
 	Close() error
 }
 
-type cronLogger struct {
+type loxLogger struct {
 	logx.Writer
 }
 
-func (c cronLogger) Info(msg string, kv ...any) {
+func (c loxLogger) Info(msg string, kv ...any) {
 	logx.Infof("%s %v", msg, kv)
 }
 
-func (c cronLogger) Error(err error, msg string, kv ...any) {
+func (c loxLogger) Error(err error, msg string, kv ...any) {
 	logx.Errorf("%s: %v %v", msg, err, kv)
 }
 
-func (c cronLogger) Close() error {
-	return c.Close()
+type defaultCronLogger struct{}
+
+func (defaultCronLogger) Info(msg string, kv ...any) {
+	logx.Infof("%s %v", msg, kv)
 }
+func (defaultCronLogger) Error(err error, msg string, kv ...any) {
+	logx.Errorf("%s: %v %v", msg, err, kv)
+}
+func (defaultCronLogger) Close() error { return nil }
 
 // Setup 根据配置设置日志系统。
 func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (Loggerx, error) {
@@ -40,7 +46,7 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	logx.MustSetup(logConf)
 
 	if !lokiConf.Enable {
-		return nil, nil
+		return defaultCronLogger{}, nil
 	}
 
 	var remoteWriter logx.Writer
@@ -58,7 +64,7 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	multi := logmulti.NewMultiWriter(remoteWriter)
 	logx.SetWriter(multi)
 
-	return cronLogger{
+	return loxLogger{
 		multi,
 	}, nil
 }

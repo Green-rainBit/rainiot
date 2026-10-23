@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
@@ -31,16 +32,15 @@ type deviceHttpCli struct {
 
 // RoundRobin 轮询负载均衡
 type RoundRobin struct {
-	counter int
+	counter atomic.Uint64
 }
 
 func (lb *RoundRobin) Pick(instances []string) string {
 	if len(instances) == 0 {
 		return ""
 	}
-	idx := lb.counter % len(instances)
-	lb.counter++
-	return instances[idx]
+	n := lb.counter.Add(1) - 1 // 第一次取 0
+	return instances[n%uint64(len(instances))]
 }
 
 func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *deviceHttpCli {
@@ -48,9 +48,9 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *dev
 		fn: func() []string {
 			return fn(defaultDeviceServiceName)
 		},
-		retryCount:    3,
-		headers:       map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},
-		balancer:      &RoundRobin{},
+		retryCount: 3,
+		headers:    map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},
+		balancer:   &RoundRobin{},
 		client: &http.Client{
 			Timeout: defaultHTTPTimeout,
 			Transport: &http.Transport{
@@ -85,6 +85,14 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 		return nil, fmt.Errorf("无可用服务实例")
 	}
 
+	var bodyBytes []byte
+	if body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(body)
+		if err != nil {
+			return nil, fmt.Errorf("读取 body 失败: %w", err)
+		}
+	}
 	// 尝试多个实例（最多 retryCount 次）
 	tried := make(map[string]bool)
 	for i := 0; i < d.retryCount; i++ {
@@ -97,7 +105,9 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 		tried[addr] = true
 
 		url := fmt.Sprintf("http://%s%s", addr, path)
-		req, err := http.NewRequestWithContext(ctx, method, url, body)
+
+		buf := bytes.NewBuffer(bodyBytes)
+		req, err := http.NewRequestWithContext(ctx, method, url, buf)
 		if err != nil {
 			continue
 		}
@@ -115,7 +125,11 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 		if resp != nil && resp.Body != nil {
 			resp.Body.Close()
 		}
-		time.Sleep(d.retryInterval)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(d.retryInterval):
+		}
 	}
 	return nil, fmt.Errorf("所有实例请求均失败")
 }

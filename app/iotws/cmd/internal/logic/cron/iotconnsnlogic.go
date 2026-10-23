@@ -51,7 +51,7 @@ func (l *iotconnsnlogic) Iotsync() {
 		switch co := conn.(type) {
 		case *gws.Conn:
 			co.NetConn().Close()
-			return
+			continue
 		default:
 			// return message, conn.(*gws.Conn).WriteMessage(gws.OpcodeText, message)
 		}

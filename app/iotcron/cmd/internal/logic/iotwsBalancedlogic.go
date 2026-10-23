@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -55,6 +56,9 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 }
 
 func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws int) {
+	if len(wsBalancedMap) == 0 {
+		return
+	}
 	meanws := totalws / len(wsBalancedMap)
 	disconnectWsserver := map[string]int{}
 	receiveWsserver := map[string]int{}
@@ -109,7 +113,11 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 			ReceiveWsserver:       val.ReceiveWsserver,
 			ReceiveWsserverAmount: val.ReceiveWsserverAmount,
 		}
-		err := l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), pub)
+		body, err := json.Marshal(pub)
+		if err != nil {
+			return
+		}
+		err = l.svcCtx.Redis.Publish(l.ctx, cache.GetWsBalancedPublishCache(disconnectWsserverName), body).Err()
 		if err != nil {
 			l.Logger.Error(fmt.Sprintf("publish error: %v", err))
 		}
