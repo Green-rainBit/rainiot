@@ -16,11 +16,6 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
-const (
-	PingInterval = 5 * time.Second
-	PingWait     = 10 * time.Second
-)
-
 var serverError = []byte("server error")
 
 func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
@@ -34,18 +29,20 @@ func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient)
 
 type Gateway struct {
 	logx.Logger
-	serverName string
-	Fn         func(connId string, message []byte) ([]byte, bool, error)
-	connection Connection
-	redis      *redis.ClusterClient
+	pingInterval time.Duration
+	pingWait     time.Duration
+	serverName   string
+	Fn           func(connId string, message []byte) ([]byte, bool, error)
+	connection   Connection
+	redis        *redis.ClusterClient
 }
 
-func (c *Gateway) OnOpen(socket *gws.Conn) {
-	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+func (g *Gateway) OnOpen(socket *gws.Conn) {
+	_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
 	SetKeepAlive(socket.NetConn())
 }
 
-func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
+func (g *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 	if err != nil {
 		socket.WriteMessage(gws.OpcodeText, []byte(err.Error()))
 	}
@@ -53,8 +50,8 @@ func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 	if ok {
 		switch coid := connId.(type) {
 		case string:
-			c.redis.Del(context.Background(), cache.GetCacheConn(coid))
-			c.connection.Del(coid)
+			g.redis.Del(context.Background(), cache.GetCacheConn(coid))
+			g.connection.Del(coid)
 		default:
 
 		}
@@ -67,8 +64,8 @@ func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 // (1001 = Going Away),让设备即时感知并重连到其他节点,再关闭底层连接。
 // WriteClose 内部为 CAS 幂等,重复调用安全;关闭会触发 OnClose 回调,
 // 由其负责清理 redis 中的 connId 缓存与连接表。
-func (c *Gateway) CloseAll() {
-	c.connection.Range(func(key, value any) bool {
+func (g *Gateway) CloseAll() {
+	g.connection.Range(func(key, value any) bool {
 		if socket, ok := value.(*gws.Conn); ok {
 			_ = socket.WriteClose(1001, []byte("server shutting down"))
 			_ = socket.NetConn().Close()
@@ -77,50 +74,52 @@ func (c *Gateway) CloseAll() {
 	})
 }
 
-func (c *Gateway) OnClose(socket *gws.Conn, err error) {
+func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 	connId, ok := socket.Session().Load("connId")
 	if ok {
 		switch coid := connId.(type) {
 		case string:
-			c.redis.Del(context.Background(), cache.GetCacheConn(coid))
-			c.connection.Del(coid)
+			g.redis.Del(context.Background(), cache.GetCacheConn(coid))
+			g.connection.Del(coid)
 		default:
 
 		}
 	}
 }
 
-func (c *Gateway) OnPing(socket *gws.Conn, payload []byte) {
+func (g *Gateway) OnPing(socket *gws.Conn, payload []byte) {
 	_, ok := socket.Session().Load("connId")
 	if ok {
-		_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+		_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
 		_ = socket.WritePong([]byte{})
 	}
 }
 
-func (c *Gateway) OnPong(socket *gws.Conn, payload []byte) {
-	_ = socket.SetDeadline(time.Now().Add(PingInterval + PingWait))
+func (g *Gateway) OnPong(socket *gws.Conn, payload []byte) {
+	_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
+	_ = socket.WritePong(payload)
 }
 
-func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
+func (g *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	defer message.Close()
-	defer c.recover("OnMessage", socket)
+	defer g.recover("OnMessage", socket)
 	connId, ok := socket.Session().Load("connId")
 	switch ok {
 	case false:
-		by, _, err := c.Fn("", message.Bytes())
+		by, _, err := g.Fn("", message.Bytes())
 		if err != nil {
-			defer c.ServerOnClose(socket, err)
+			defer g.ServerOnClose(socket, err)
 			return
 		}
-		sn := c.extractSn(by)
+		sn := g.extractSn(by)
 		if sn != "" {
 			socket.Session().Store("connId", sn)
-			c.connection.Storage(sn, socket)
+			g.connection.Storage(sn, socket)
 		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:
-		by, sync, err := c.Fn(connId.(string), message.Bytes())
+		_ = socket.SetReadDeadline(time.Now().Add(g.pingInterval + g.pingWait))
+		by, sync, err := g.Fn(connId.(string), message.Bytes())
 		if err != nil {
 			defer socket.WriteMessage(message.Opcode, []byte(err.Error()))
 			return
@@ -132,14 +131,14 @@ func (c *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	}
 }
 
-func (c *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
+func (g *Gateway) recover(ctx string, socket *gws.Conn, err ...interface{}) {
 	if r := recover(); r != nil {
-		c.Logger.Errorf("[Recover] %s panic: %v, stack: %s", ctx, r, debug.Stack())
+		g.Logger.Errorf("[Recover] %s panic: %v, stack: %s", ctx, r, debug.Stack())
 		socket.WriteMessage(gws.OpcodeText, serverError)
 	}
 }
 
-func (c *Gateway) extractSn(payload []byte) string {
+func (g *Gateway) extractSn(payload []byte) string {
 	key := []byte(`"connId":"`)
 	i := bytes.Index(payload, key)
 	if i == -1 {
@@ -151,6 +150,28 @@ func (c *Gateway) extractSn(payload []byte) string {
 		return ""
 	}
 	return string(payload[start : start+end])
+}
+
+func (g *Gateway) StartPing() (stop func()) {
+	done := make(chan struct{})
+	go func() {
+		t := time.NewTicker(g.pingInterval)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				g.connection.Range(func(_, v any) bool {
+					if s, ok := v.(*gws.Conn); ok {
+						_ = s.WritePing(nil)
+					}
+					return true
+				})
+			case <-done:
+				return
+			}
+		}
+	}()
+	return func() { close(done) }
 }
 
 // SetKeepAlive 从 net.Conn 中提取 TCP 连接并设置 keep-alive。

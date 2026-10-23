@@ -9,7 +9,7 @@ type Ntice struct {
 }
 
 type Request struct {
-	ConnId string `path:"connId,options=you|me"`
+	ConnId string `form:"connId,optional"`
 }
 
 type Response struct {

@@ -5,9 +5,12 @@ package handler
 
 import (
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"rainiot/app/iotws/cmd/internal/svc"
+
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 const (
@@ -29,6 +32,13 @@ func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		}
 
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					logx.Errorf("[ws] ReadLoop panic connId=%s: %v\n%s", connId, r, debug.Stack())
+					_ = socket.NetConn().Close()
+					svcCtx.CleanupSocket(socket) // 见下方说明
+				}
+			}()
 			socket.ReadLoop() // 此处阻塞会使请求上下文不能顺利被GC
 		}()
 	}
