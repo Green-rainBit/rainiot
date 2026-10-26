@@ -35,19 +35,19 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 	if err != nil {
 		return err
 	}
-	if float64(l.svcCtx.Connection.GetNumber())-float64(pub.Meanws) < 20 {
+	if float64(l.svcCtx.Connection.GetConnByCount())-float64(pub.Meanws) < 20 {
 		return nil
 	}
-	percentage := (float64(l.svcCtx.Connection.GetNumber()) - float64(pub.Meanws)) / float64(pub.Meanws)
+	percentage := (float64(l.svcCtx.Connection.GetConnByCount()) - float64(pub.Meanws)) / float64(pub.Meanws)
 	if percentage < 0.1 {
 		return nil
 	}
-	var Amount int64
+	var amount int64
 	for _, v := range pub.ReceiveWsserverAmount {
-		Amount += v
+		amount += v
 	}
-	conns, ok := l.svcCtx.Connection.GetConnByCount(Amount)
-	if !ok {
+	conns := l.svcCtx.Connection.Take(amount)
+	if len(conns) == 0 {
 		return nil
 	}
 	messages := make([][]byte, 0, len(pub.ReceiveWsserver))

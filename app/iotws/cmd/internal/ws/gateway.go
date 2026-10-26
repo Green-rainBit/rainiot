@@ -80,7 +80,7 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 		switch coid := connId.(type) {
 		case string:
 
-			if cur, ok := g.connection.GetconnByConnId(coid); ok && cur == socket {
+			if cur, ok := g.connection.GetConnByConnId(coid); ok && cur == socket {
 				g.redis.Del(context.Background(), cache.GetCacheConn(coid))
 				g.connection.Delete(coid, socket)
 			}

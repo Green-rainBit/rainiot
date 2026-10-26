@@ -9,8 +9,8 @@ type Connection interface {
 	Store(connId string, conn any) (old any, replaced bool)
 	Delete(connId string, conn any) bool // 只有 map 里仍是这个 socket 才删
 	GetConnByConnId(connId string) (any, bool)
-	GetNumber() int64
-	Take(n int) []any
+	GetConnByCount() int64
+	Take(n int64) []any
 	Range(func(key, value any) bool)
 }
 
@@ -26,28 +26,34 @@ func NewConnection() Connection {
 	}
 }
 
-func (c *connection) Storage(connId string, conn any) error {
-	if _, loaded := c.soketMap.Swap(connId, conn); !loaded {
+func (c *connection) Store(connId string, conn any) (old any, replaced bool) {
+	old, replaced = c.soketMap.Swap(connId, conn)
+	if !replaced {
 		atomic.AddInt64(&c.count, 1)
 	}
 
-	return nil
+	return old, replaced
 }
 
 func (c *connection) Delete(connId string, conn any) bool {
-	atomic.AddInt64(&c.count, -1)
-	c.soketMap.Delete(connId)
+	_, replaced := c.soketMap.Swap(connId, conn)
+	if replaced {
+		atomic.AddInt64(&c.count, -1)
+		c.soketMap.Delete(connId)
+	}
+	return replaced
+
 }
 
 func (c *connection) GetConnByConnId(connId string) (any, bool) {
 	return c.soketMap.Load(connId)
 }
 
-func (c *connection) GetNumber() int64 {
+func (c *connection) GetConnByCount() int64 {
 	return atomic.LoadInt64(&c.count)
 }
 
-func (c *connection) GetConnByCount(count int64) ([]any, bool) {
+func (c *connection) Take(count int64) []any {
 	conns := make([]any, count)
 	i := int64(0)
 	c.soketMap.Range(func(key, conn any) bool {
@@ -59,7 +65,7 @@ func (c *connection) GetConnByCount(count int64) ([]any, bool) {
 		i++
 		return true
 	})
-	return conns, true
+	return conns
 }
 
 func (c *connection) Range(f func(key, value any) bool) {
