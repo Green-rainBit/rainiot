@@ -26,12 +26,6 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, topic string, logger watermil
 		return nil, err
 	}
 
-	// DurablePrefix 未设置时回退到 Subject，保证兼容
-	durablePrefix := nconfig.DurablePrefix
-	if durablePrefix == "" {
-		durablePrefix = topic
-	}
-
 	var subOpts []ns.SubOpt
 	if nconfig.MaxAckPending > 0 {
 		subOpts = append(subOpts, ns.MaxAckPending(nconfig.MaxAckPending))
@@ -56,15 +50,22 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, topic string, logger watermil
 	pubJetStreamCfg := nats.JetStreamConfig{
 		Disabled:         false,
 		AutoProvision:    false, // stream 已预创建，关闭 per-publish ensureStream
-		DurablePrefix:    durablePrefix,
+		DurablePrefix:    nconfig.DurablePrefix,
 		SubscribeOptions: subOpts,
 	}
 
 	// 订阅端保留 autoProvision：consumers 可能需要自动创建。
 	subJetStreamCfg := nats.JetStreamConfig{
-		Disabled:         false,
-		AutoProvision:    nconfig.AutoProvision,
-		DurablePrefix:    durablePrefix,
+		Disabled:      false,
+		AutoProvision: nconfig.AutoProvision,
+		DurablePrefix: nconfig.DurablePrefix,
+		DurableCalculator: func(prefix, topic string) string {
+			name := topic
+			if prefix != "" {
+				name = prefix + "-" + topic
+			}
+			return strings.NewReplacer(".", "_", "*", "_", ">", "_", " ", "_").Replace(name)
+		},
 		SubscribeOptions: subOpts,
 	}
 
@@ -82,6 +83,9 @@ func NewNatsConnect(nconfig openconfig.NATSConfig, topic string, logger watermil
 		QueueGroupPrefix:  nconfig.QueueGroupPrefix,
 		SubscribersCount:  nconfig.SubscribersCount,
 		JetStream:         subJetStreamCfg,
+		AckWaitTimeout:    30 * time.Second,
+		NakDelay:          nats.NewMaxRetryDelay(5*time.Second, 5), // 5 次后 Term
+
 	}, logger)
 	if err != nil {
 		return nil, err

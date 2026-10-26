@@ -28,7 +28,7 @@ func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 
 		if connId != "" {
 			socket.Session().Store("connId", connId)
-			svcCtx.Connection.Storage(connId, socket)
+			svcCtx.Connection.Store(connId, socket)
 		}
 
 		go func() {

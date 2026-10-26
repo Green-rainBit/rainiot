@@ -28,7 +28,7 @@ func NewIotPingLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotPingLo
 }
 
 func (l *IotPingLogic) IotPing(req *types.Request) (err error) {
-	_, ok := l.svcCtx.Connection.GetconnByConnId(req.ConnId)
+	_, ok := l.svcCtx.Connection.GetConnByConnId(req.ConnId)
 	if !ok {
 		return errors.New("设备未连接")
 	}

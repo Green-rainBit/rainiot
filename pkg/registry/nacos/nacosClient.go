@@ -59,6 +59,7 @@ func NewNacosClient(config openconfig.NacosConfig) (*nacosClient, error) {
 	nc := &nacosClient{
 		config:    config,
 		namingCli: namingClient,
+		Logger:    logx.WithContext(context.Background()),
 	}
 	util.Go(nc.autoRefresh)
 
@@ -93,7 +94,7 @@ func (n *nacosClient) InitRegisterInstanceGrpc(c zrpc.RpcServerConf) error {
 }
 
 func (n *nacosClient) InitRegisterInstance(c rest.RestConf) error {
-	_, ip, portStr := util.GetRegistryParameters(c)
+	serviceName, ip, portStr := util.GetRegistryParameters(c)
 	port, err := strconv.ParseUint(portStr, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid SERVICE_PORT: %w", err)
@@ -101,7 +102,7 @@ func (n *nacosClient) InitRegisterInstance(c rest.RestConf) error {
 	_, err = n.namingCli.RegisterInstance(vo.RegisterInstanceParam{
 		Ip:          ip,
 		Port:        port,
-		ServiceName: n.config.DataId,
+		ServiceName: serviceName,
 		GroupName:   n.groupOrDefault(n.config.Group),
 		Weight:      10,
 		Enable:      true,
@@ -186,7 +187,8 @@ func (n *nacosClient) autoRefresh() {
 
 // GetHealthyInstances 返回当前健康的实例列表（副本）
 func (n *nacosClient) GetHealthyInstances(serviceName string) []string {
-	key := serviceName + ":" + n.config.Group
+	// key := serviceName + ":" + n.config.Group
+	key := serviceName + ":" + n.groupOrDefault(n.config.Group)
 	v, ok := n.instances.Load(key)
 	if !ok {
 		if err := n.GetSeverCli(serviceName); err != nil {

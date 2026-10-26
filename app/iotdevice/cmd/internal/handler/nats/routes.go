@@ -50,19 +50,25 @@ func StartRouter(svcCtx *svc.ServiceContext) {
 	}
 	logger.Infof("[NATS] 入口消费者启动: subject=%s", subject)
 
+	const ingressWorkers = 64
+	tasks := make(chan *message.Message, 256) // 有界缓冲队列
+
+	// 启动固定数量的 worker
+	for i := 0; i < ingressWorkers; i++ {
+		util.Go(func() {
+			for ms := range tasks {
+				if err := HandleAllNatsMessage(svcCtx, ms); err != nil {
+					logger.Errorf("[NATS] 入口路由失败: %v", err)
+					ms.Nack()
+				}
+			}
+		})
+	}
 	util.Go(func() {
 		for msg := range ingressConsumer {
-			util.Go(func() {
-				func(ms *message.Message) {
-					if err := HandleAllNatsMessage(svcCtx, ms); err != nil {
-						logger.Errorf("[NATS] 入口路由失败: %v", err)
-						ms.Nack()
-					}
-				}(msg)
-			})
+			tasks <- msg // 缓冲满时阻塞，背压传导至 NATS
 		}
 	})
-
 	// ── Consumer 2: 按 cmd 的并行消费者 ──
 	for cmd, cfg := range cmdWorkers {
 		cmdSubject := subject + "." + cmd
