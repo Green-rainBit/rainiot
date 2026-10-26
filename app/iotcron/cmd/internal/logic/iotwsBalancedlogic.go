@@ -40,9 +40,7 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 			time.Now().Add(-5*time.Minute).Unix(), 0).Err()
 	} else if err != nil {
 		return
-	} else if time.Unix(timeUnix, 0).Add(5 * time.Minute).After(time.Now()) {
-		return
-	}
+	} 
 	timeLastat := time.Unix(timeUnix, 0)
 	if timeLastat.Add(time.Minute * time.Duration(5)).After(time.Now()) {
 		return

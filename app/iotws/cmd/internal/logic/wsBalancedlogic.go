@@ -80,7 +80,7 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 			severNumber++
 		}
 	}
-	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLast(), time.Now().Unix(), -1).Err()
+	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLast(), time.Now().Unix(), 0).Err()
 	if err != nil {
 		l.Logger.Error(fmt.Sprintf("wsBalancedHandler iotsync set error: %v", err))
 		return err
