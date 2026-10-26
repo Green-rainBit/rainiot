@@ -43,7 +43,9 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	if lokiConf.Console {
 		logConf.Mode = "console" // go-zero 原生控制台输出
 	}
-	logx.MustSetup(logConf)
+	if err := logx.SetUp(logConf); err != nil { // 不要 MustSetup，让错误可返回
+		return nil, err
+	}
 
 	if !lokiConf.Enable {
 		return defaultCronLogger{}, nil
@@ -62,11 +64,9 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	}
 
 	multi := logmulti.NewMultiWriter(remoteWriter)
-	logx.AddWriter(multi)
+	logx.AddWriter(multi) // 保留本地 file/console writer
 
-	return loxLogger{
-		multi,
-	}, nil
+	return loxLogger{}, nil
 }
 
 func newBridgeWriter(cfg logloki.LokiConf, natsUrls []string) (logx.Writer, error) {

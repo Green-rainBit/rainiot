@@ -6,12 +6,12 @@ import (
 )
 
 type Connection interface {
-	Storage(connId string, conn any) error
-	Del(connId string)
-	GetconnByConnId(connId string) (any, bool)
+	Store(connId string, conn any) (old any, replaced bool)
+	Delete(connId string, conn any) bool // 只有 map 里仍是这个 socket 才删
+	GetConnByConnId(connId string) (any, bool)
 	GetNumber() int64
-	GetConnByCount(count int64) ([]any, bool)
-	Range(f func(key, value any) bool)
+	Take(n int) []any
+	Range(func(key, value any) bool)
 }
 
 type connection struct {
@@ -34,13 +34,12 @@ func (c *connection) Storage(connId string, conn any) error {
 	return nil
 }
 
-func (c *connection) Del(connId string) {
-	if _, loaded := c.soketMap.LoadAndDelete(connId); loaded {
-		atomic.AddInt64(&c.count, -1)
-	}
+func (c *connection) Delete(connId string, conn any) bool {
+	atomic.AddInt64(&c.count, -1)
+	c.soketMap.Delete(connId)
 }
 
-func (c *connection) GetconnByConnId(connId string) (any, bool) {
+func (c *connection) GetConnByConnId(connId string) (any, bool) {
 	return c.soketMap.Load(connId)
 }
 

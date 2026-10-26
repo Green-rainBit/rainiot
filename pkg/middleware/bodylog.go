@@ -10,6 +10,8 @@ import (
 	"github.com/zeromicro/go-zero/rest/httpx"
 )
 
+const maxBody = 1 << 20 // 1MB
+
 // RequestBodyLog 记录请求体内容到 logx（共享 go-zero 的 trace/span 上下文）。
 // 读取 body 后回填，后续中间件和 handler 仍能正常读取。
 func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
@@ -18,7 +20,7 @@ func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		body, err := io.ReadAll(r.Body)
 		r.Body.Close()
 		if err != nil {
@@ -27,7 +29,8 @@ func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
-
+		logx.WithContext(r.Context()).Infof(
+			"request body size=%d content-type=%s", len(body), r.Header.Get("Content-Type"))
 		if len(body) > 0 {
 			logx.WithContext(r.Context()).Infof("body: %s", string(body))
 		}

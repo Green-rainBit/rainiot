@@ -3,6 +3,7 @@ package svc
 import (
 	"encoding/json"
 	"log"
+	"runtime/debug"
 	"strings"
 
 	"rainiot/app/iotws/cmd/internal/config"
@@ -67,7 +68,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	serviceName := util.GetServiceName(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
-
+	gateway.StartPing()
 	devCli := devicecli.NewDeviceCli(c.TransportModel, serviceName, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
 
 	return &ServiceContext{
@@ -78,11 +79,9 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		gateway:    gateway,
 		Upgrader: gws.NewUpgrader(gateway, &gws.ServerOption{
 			Recovery: func(logger gws.Logger) {
-				func() {
-					if r := recover(); r != nil {
-						logger.Error(r)
-					}
-				}()
+				if r := recover(); r != nil {
+					logger.Error("panic:", r, string(debug.Stack()))
+				}
 			},
 			NewSession: func() gws.SessionStorage {
 				return gws.NewConcurrentMap[string, any](1)
@@ -106,4 +105,8 @@ func (s *ServiceContext) WireWsFn(fn func(connId string, message []byte) ([]byte
 // CloseWs 优雅关闭所有 WebSocket 连接,委托给 gateway。
 func (s *ServiceContext) CloseWs() {
 	s.gateway.CloseAll()
+}
+
+func (s *ServiceContext) CleanupSocket(socket *gws.Conn) {
+	s.gateway.OnClose(socket, nil)
 }

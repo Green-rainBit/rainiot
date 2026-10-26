@@ -44,7 +44,7 @@ func (l *iotconnsnlogic) Iotsync() {
 		return
 	}
 	for _, failConnectionId := range failConnectionIds {
-		conn, ok := l.svcCtx.Connection.GetconnByConnId(failConnectionId)
+		conn, ok := l.svcCtx.Connection.GetConnByConnId(failConnectionId)
 		if !ok {
 			continue
 		}
@@ -55,7 +55,7 @@ func (l *iotconnsnlogic) Iotsync() {
 		default:
 			// return message, conn.(*gws.Conn).WriteMessage(gws.OpcodeText, message)
 		}
-		l.svcCtx.Connection.Del(failConnectionId)
+		l.svcCtx.Connection.Delete(failConnectionId, conn)
 	}
 }
 

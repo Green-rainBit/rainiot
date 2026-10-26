@@ -2,6 +2,7 @@ package config
 
 import (
 	"sync"
+	"time"
 
 	"rainiot/pkg/alarm"
 	"rainiot/pkg/log/logloki"
@@ -31,13 +32,15 @@ type Config struct {
 
 // WsConf WebSocket 服务器配置。
 type WsConf struct {
-	ReadBufferSize     int  `json:",default=8192"`
-	WriteBufferSize    int  `json:",default=8192"`
-	ReadMaxPayloadSize  int  `json:",default=8192"`
-	WriteMaxPayloadSize int  `json:",default=8192"`
-	ParallelEnabled    bool `json:",default=true"`
-	ParallelGolimit    int  `json:",default=1024"`
-	CheckUtf8Enabled   bool `json:",default=false"`
+	PingInterval        time.Duration `json:",default=25s"`
+	PingWait            time.Duration `json:",default=75s"`
+	ReadBufferSize      int           `json:",default=8192"`
+	WriteBufferSize     int           `json:",default=8192"`
+	ReadMaxPayloadSize  int           `json:",default=8192"`
+	WriteMaxPayloadSize int           `json:",default=8192"`
+	ParallelEnabled     bool          `json:",default=true"`
+	ParallelGolimit     int           `json:",default=1024"`
+	CheckUtf8Enabled    bool          `json:",default=false"`
 }
 
 func (c *Config) GetHealthyInstances(serviceName string) []string {
