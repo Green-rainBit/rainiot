@@ -63,6 +63,10 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 
 	severNumber := 0
 	for i := 0; i < len(conns); i++ {
+		if severNumber >= len(pub.ReceiveWsserverAmount) {
+			break
+		}
+
 		if pub.ReceiveWsserverAmount[severNumber] > 0 {
 			switch co := conns[i].(type) {
 			case *gws.Conn:
@@ -76,7 +80,7 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 			severNumber++
 		}
 	}
-	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLastat(), time.Now().Unix(), -1).Err()
+	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLast(), time.Now().Unix(), -1).Err()
 	if err != nil {
 		l.Logger.Error(fmt.Sprintf("wsBalancedHandler iotsync set error: %v", err))
 		return err

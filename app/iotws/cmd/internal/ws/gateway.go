@@ -54,7 +54,10 @@ func (c *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 		switch coid := connId.(type) {
 		case string:
 			c.redis.Del(context.Background(), cache.GetCacheConn(coid))
-			c.connection.Del(coid)
+			if cur, ok := c.connection.GetconnByConnId(coid); ok && cur == socket {
+				c.connection.Del(coid)
+			}
+
 		default:
 
 		}
@@ -83,7 +86,10 @@ func (c *Gateway) OnClose(socket *gws.Conn, err error) {
 		switch coid := connId.(type) {
 		case string:
 			c.redis.Del(context.Background(), cache.GetCacheConn(coid))
-			c.connection.Del(coid)
+			if cur, ok := c.connection.GetconnByConnId(coid); ok && cur == socket {
+				c.connection.Del(coid)
+			}
+
 		default:
 
 		}

@@ -62,7 +62,7 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	}
 
 	multi := logmulti.NewMultiWriter(remoteWriter)
-	logx.SetWriter(multi)
+	logx.AddWriter(multi)
 
 	return loxLogger{
 		multi,

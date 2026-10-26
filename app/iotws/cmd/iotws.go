@@ -58,8 +58,8 @@ func main() {
 	cr.Start()
 
 	mux := handler.Register(ctx)
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: c.CacheRedis.Host, Password: c.CacheRedis.Pass},
+	srv := asynq.NewServerFromRedisClient(
+		ctx.Redis,
 		asynq.Config{
 			Concurrency: 10, // 并发 worker 数
 		},

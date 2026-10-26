@@ -9,8 +9,9 @@ import (
 )
 
 type ServiceContext struct {
-	Config      config.Config
-	AsynqServer *asynq.Server
+	Config config.Config
+	// AsynqServer *asynq.Server
+	AsynqClient *asynq.Client
 	Redis       *redis.ClusterClient
 	// MiniProgram *miniprogram.MiniProgram
 
@@ -24,7 +25,8 @@ func NewServiceContext(c config.Config) *ServiceContext {
 		Password: c.CacheRedis.Pass,
 	})
 	return &ServiceContext{
-		Config: c,
-		Redis:  client,
+		Config:      c,
+		Redis:       client,
+		AsynqClient: asynq.NewClientFromRedisClient(client),
 	}
 }

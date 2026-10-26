@@ -27,14 +27,17 @@ func NewConnection() Connection {
 }
 
 func (c *connection) Storage(connId string, conn any) error {
-	c.soketMap.Store(connId, conn)
-	atomic.AddInt64(&c.count, 1)
+	if _, loaded := c.soketMap.Swap(connId, conn); !loaded {
+		atomic.AddInt64(&c.count, 1)
+	}
+
 	return nil
 }
 
 func (c *connection) Del(connId string) {
-	atomic.AddInt64(&c.count, -1)
-	c.soketMap.Delete(connId)
+	if _, loaded := c.soketMap.LoadAndDelete(connId); loaded {
+		atomic.AddInt64(&c.count, -1)
+	}
 }
 
 func (c *connection) GetconnByConnId(connId string) (any, bool) {
@@ -42,7 +45,7 @@ func (c *connection) GetconnByConnId(connId string) (any, bool) {
 }
 
 func (c *connection) GetNumber() int64 {
-	return c.count
+	return atomic.LoadInt64(&c.count)
 }
 
 func (c *connection) GetConnByCount(count int64) ([]any, bool) {
