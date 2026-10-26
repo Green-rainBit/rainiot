@@ -64,7 +64,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
 	}
 
-	serviceName, _, _ := util.GetRegistryParameters(c.RestConf)
+	serviceName := util.GetServiceName(c.RestConf)
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(serviceName, connection, client)
 

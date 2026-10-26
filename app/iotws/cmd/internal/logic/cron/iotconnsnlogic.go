@@ -30,7 +30,7 @@ func NewIotconnsnlogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotconn
 }
 
 func (l *iotconnsnlogic) Iotsync() {
-	serviceName, _, _ := util.GetRegistryParameters(l.svcCtx.Config.RestConf)
+	serviceName := util.GetServiceName(l.svcCtx.Config.RestConf)
 	connectionIds := []string{}
 	l.svcCtx.Connection.Range(func(key, value interface{}) bool {
 		switch v := key.(type) {

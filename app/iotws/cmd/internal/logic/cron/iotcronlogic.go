@@ -10,6 +10,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
+	"rainiot/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -29,7 +30,7 @@ func NewIotsyncLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotsyncLo
 }
 
 func (l *iotsyncLogic) Iotsync() {
-	key := cache.GetWsBalancedPublishCache(l.svcCtx.Config.Name)
+	key := cache.GetWsBalancedPublishCache(util.GetServiceName(l.svcCtx.Config.RestConf))
 	value := l.svcCtx.Connection.GetNumber()
 	expiration := time.Duration(5) * time.Second
 	err := l.svcCtx.Redis.Set(l.ctx, key, value, expiration).Err()

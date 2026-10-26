@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"rainiot/app/iotcron/cmd/internal/svc"
@@ -46,19 +47,33 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 	if timeLastat.Add(time.Minute * time.Duration(5)).After(time.Now()) {
 		return
 	}
-	keys, err := l.svcCtx.Redis.Keys(l.ctx, cache.GetWsBalancedPublishCache("")).Result()
+	var allKeys []string
+	pattern := cache.GetWsBalancedPublishCache("")
+
+	err = l.svcCtx.Redis.ForEachMaster(l.ctx, func(ctx context.Context, rdb *redis.Client) error {
+		iter := rdb.Scan(ctx, 0, pattern, 100).Iterator()
+		for iter.Next(ctx) {
+			allKeys = append(allKeys, iter.Val())
+		}
+		return iter.Err()
+	})
 	if err != nil {
 		return
 	}
-	wsBalancedMap := make(map[string]int, len(keys))
+	wsBalancedMap := make(map[string]int, len(allKeys))
 	totalws := 0
-	for _, key := range keys {
-		wsBalancedMap[key], err = l.svcCtx.Redis.GetDel(l.ctx, key).Int()
+	prefix := cache.GetWsBalancedPublishCache("")
+	for _, key := range allKeys {
+		serverName := strings.TrimPrefix(key, prefix)
+		if serverName == "" {
+			continue
+		}
+		wsBalancedMap[serverName], err = l.svcCtx.Redis.GetDel(l.ctx, key).Int()
 		if err != nil {
 			l.Logger.Error(fmt.Sprintf("getdel error: %v", err))
 			continue
 		}
-		totalws += wsBalancedMap[key]
+		totalws += wsBalancedMap[serverName]
 	}
 	l.IotwsBalanced(wsBalancedMap, totalws)
 }
@@ -77,19 +92,19 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 		return
 	}
 	// balanced ws in 20% range fluctuation
-	for serverNameChannel, totalws := range wsBalancedMap {
+	for serverName, totalws := range wsBalancedMap {
 		if totalws < meanws-offset {
-			receiveWsserver[serverNameChannel] = meanws - totalws
+			receiveWsserver[serverName] = meanws - totalws
 		}
 		if totalws > meanws+offset {
-			disconnectWsserver[serverNameChannel] = totalws - meanws
+			disconnectWsserver[serverName] = totalws - meanws
 		}
 	}
 	disconnectWsOutreceiveSeverMap := map[string]struct {
 		ReceiveWsserver       []string
 		ReceiveWsserverAmount []int64
 	}{}
-	for serverNameChannel, totalws := range disconnectWsserver {
+	for serverName, totalws := range disconnectWsserver {
 		receiveWsserverNames := []string{}
 		receiveWsserverAmount := []int64{}
 		for receiveWsserverName, receiveWs := range receiveWsserver {
@@ -106,7 +121,7 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 			}
 			receiveWsserverNames = append(receiveWsserverNames, receiveWsserverName)
 		}
-		disconnectWsOutreceiveSeverMap[serverNameChannel] = struct {
+		disconnectWsOutreceiveSeverMap[serverName] = struct {
 			ReceiveWsserver       []string
 			ReceiveWsserverAmount []int64
 		}{
@@ -125,7 +140,7 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 		if err != nil {
 			return
 		}
-		task := asynq.NewTask(disconnectWsServerName, body)
+		task := asynq.NewTask(cache.GetWsBalancedPublishCache(disconnectWsServerName), body)
 		if _, err := l.svcCtx.AsynqClient.Enqueue(task); err != nil {
 			l.Logger.Errorf("enqueue balance task failed: %v", err)
 		}

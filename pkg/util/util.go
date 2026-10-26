@@ -10,11 +10,7 @@ import (
 )
 
 func GetRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
-	serviceName = os.Getenv("SERVICE_NAME")
-	if serviceName == "" {
-		serviceName = c.Name
-	}
-
+	serviceName = GetServiceName(c)
 	ip = os.Getenv("SERVICE_IP")
 	if ip == "" {
 		ip = getLocalIP()
@@ -33,6 +29,15 @@ func GetRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
 		portStr = strconv.Itoa(c.Port)
 	}
 	return
+}
+
+func GetServiceName(c rest.RestConf) string {
+	serviceName := os.Getenv("SERVICE_NAME")
+	if serviceName == "" {
+		serviceName = c.Name
+	}
+	return serviceName
+
 }
 
 func GetGrpcRegistryParameters(serviceName, listenOn string) (ip, portStr string) {

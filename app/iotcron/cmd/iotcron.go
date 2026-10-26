@@ -45,5 +45,7 @@ func main() {
 	defer stop()
 	<-ctx.Done()
 	<-mux.Stop().Done() // 等待在途任务
+	_ = svcCtx.AsynqClient.Close()
+	_ = svcCtx.Redis.Close()
 
 }
