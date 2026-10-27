@@ -40,13 +40,13 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 			time.Now().Add(-5*time.Minute).Unix(), 0).Err()
 	} else if err != nil {
 		return
-	} 
+	}
 	timeLastat := time.Unix(timeUnix, 0)
 	if timeLastat.Add(time.Minute * time.Duration(5)).After(time.Now()) {
 		return
 	}
 	var allKeys []string
-	pattern := cache.GetWsBalancedPublishCache("")
+	pattern := cache.GetWsBalancedPublishCache("") + "*"
 
 	err = l.svcCtx.Redis.ForEachMaster(l.ctx, func(ctx context.Context, rdb *redis.Client) error {
 		iter := rdb.Scan(ctx, 0, pattern, 100).Iterator()

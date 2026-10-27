@@ -20,6 +20,7 @@ const (
 
 func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// connId为提前签发
 		connId := r.URL.Query().Get("connId")
 		socket, err := svcCtx.Upgrader.Upgrade(w, r)
 		if err != nil {

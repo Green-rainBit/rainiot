@@ -75,7 +75,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	}
 
 	connection := ws.NewConnection()
-	gateway := ws.NewGatewayr(connection, client, c)
+	gateway := ws.NewGatewayr(instanceId, connection, client, c)
 	gateway.StartPing()
 	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
 

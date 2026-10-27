@@ -19,8 +19,9 @@ import (
 
 var serverError = []byte("server error")
 
-func NewGatewayr(conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
+func NewGatewayr(instanceId string, conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
 	return &Gateway{
+		instanceId:   instanceId,
 		pingInterval: c.WsConf.PingInterval,
 		pingWait:     c.WsConf.PingWait,
 		Logger:       logx.WithContext(context.Background()),
@@ -31,6 +32,7 @@ func NewGatewayr(conn Connection, redis *redis.ClusterClient, c *config.Config) 
 
 type Gateway struct {
 	logx.Logger
+	instanceId   string
 	pingInterval time.Duration
 	pingWait     time.Duration
 	Fn           func(connId string, message []byte) ([]byte, bool, error)
@@ -70,17 +72,35 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 	if ok {
 		switch coid := connId.(type) {
 		case string:
-
 			if cur, ok := g.connection.GetConnByConnId(coid); ok && cur == socket {
-				g.redis.Del(context.Background(), cache.GetCacheConn(coid))
+				instanceId := g.redis.Get(context.Background(), cache.GetCacheConn(coid)).String()
+				if instanceId == g.instanceId {
+					g.redis.Del(context.Background(), cache.GetCacheConn(coid))
+				}
 				g.connection.Delete(coid, socket)
 			}
-
 		default:
 
 		}
 	}
+	socket.NetConn().Close()
 }
+
+// var releaseConnScript = redis.NewScript(`
+// if redis.call("GET", KEYS[1]) == ARGV[1] then
+//   return redis.call("DEL", KEYS[1])
+// end
+// return 0
+// `)
+
+// func (g *Gateway) releaseConn(connId string) {
+// 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+// 	defer cancel()
+// 	if err := releaseConnScript.Run(ctx, g.redis,
+// 		[]string{cache.GetCacheConn(connId)}, g.instanceId).Err(); err != nil {
+// 		g.Logger.Errorf("[ws] release conn key failed connId=%s: %v", connId, err)
+// 	}
+// }
 
 func (g *Gateway) OnPing(socket *gws.Conn, payload []byte) {
 	_, ok := socket.Session().Load("connId")

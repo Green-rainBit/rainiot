@@ -51,17 +51,17 @@ func (c *connection) GetConnByCount() int64 {
 	return atomic.LoadInt64(&c.count)
 }
 
-func (c *connection) Take(count int64) []any {
-	conns := make([]any, 0, count)
-	i := int64(0)
-	c.soketMap.Range(func(key, conn any) bool {
-
-		if i >= count {
-			return false
-		}
-		conns[i] = conn
-		i++
-		return true
+func (c *connection) Take(n int64) []any {
+	if n <= 0 {
+		return nil
+	}
+	if max := c.GetConnByCount(); n > max {
+		n = max
+	}
+	conns := make([]any, 0, n)
+	c.soketMap.Range(func(_, v any) bool {
+		conns = append(conns, v)
+		return int64(len(conns)) < n
 	})
 	return conns
 }

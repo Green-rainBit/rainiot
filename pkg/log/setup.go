@@ -66,7 +66,9 @@ func Setup(logConf logx.LogConf, lokiConf logloki.LokiConf, natsUrls []string) (
 	multi := logmulti.NewMultiWriter(remoteWriter)
 	logx.AddWriter(multi) // 保留本地 file/console writer
 
-	return loxLogger{}, nil
+	return loxLogger{
+		multi,
+	}, nil
 }
 
 func newBridgeWriter(cfg logloki.LokiConf, natsUrls []string) (logx.Writer, error) {

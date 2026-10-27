@@ -9,6 +9,7 @@ import (
 	"rainiot/app/iotws/cmd/internal/handler"
 	"rainiot/app/iotws/cmd/internal/logic"
 	"rainiot/app/iotws/cmd/internal/svc"
+	"rainiot/pkg/cache"
 	plog "rainiot/pkg/log"
 	"rainiot/pkg/openconfig"
 
@@ -58,10 +59,13 @@ func main() {
 	cr.Start()
 
 	mux := handler.Register(ctx)
+
+	queueName := cache.WsBalanceQueue(ctx.GetInstanceId())
 	srv := asynq.NewServerFromRedisClient(
 		ctx.Redis,
 		asynq.Config{
 			Concurrency: 10, // 并发 worker 数
+			Queues:      map[string]int{queueName: 1},
 		},
 	)
 	go func() {

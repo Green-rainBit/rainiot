@@ -30,7 +30,7 @@ func NewIotconnsnlogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotconn
 }
 
 func (l *iotconnsnlogic) Iotsync() {
-	serviceName := l.svcCtx.GetInstanceId()
+	instanceId := l.svcCtx.GetInstanceId()
 	connectionIds := []string{}
 	l.svcCtx.Connection.Range(func(key, value interface{}) bool {
 		switch v := key.(type) {
@@ -39,7 +39,7 @@ func (l *iotconnsnlogic) Iotsync() {
 		}
 		return true
 	})
-	_, failConnectionIds, err := l.setIfExistsBatchResult(l.ctx, connectionIds, serviceName)
+	_, failConnectionIds, err := l.setIfExistsBatchResult(l.ctx, connectionIds, instanceId)
 	if err != nil {
 		return
 	}
@@ -62,15 +62,16 @@ func (l *iotconnsnlogic) Iotsync() {
 // SetIfExistsBatchResult 批量设置，并返回成功和失败的 key 信息
 // 成功：设置成功（key存在）
 // 失败：key 不存在，未设置值
-func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionIds []string, serviceName string) (
+func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionIds []string, instanceId string) (
 	successKeys []string,
 	failConnectionIds []string,
 	err error,
 ) {
 	pipe := l.svcCtx.Redis.Pipeline()
 	cmds := make([]*redis.StatusCmd, len(connectionIds))
+
 	for i, connectionId := range connectionIds {
-		cmds[i] = pipe.SetArgs(ctx, cache.GetCacheConn(connectionId), serviceName, redis.SetArgs{
+		cmds[i] = pipe.SetArgs(ctx, cache.GetCacheConn(connectionId), instanceId, redis.SetArgs{
 			Mode: "XX",
 			TTL:  cache.ConnTime,
 		})

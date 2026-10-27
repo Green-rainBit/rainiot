@@ -51,7 +51,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	if ok {
 		next := *svcCtx.config.Load()
 		if err := json.Unmarshal([]byte(cf), &next); err != nil {
-			logx.Errorf("invalid config: %v", err)
+			log.Fatalf("invalid config: %v", err)
 			return nil
 		}
 		svcCtx.config.Store(&next)
