@@ -9,7 +9,6 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
-	"rainiot/pkg/util"
 
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
@@ -31,7 +30,7 @@ func NewIotconnsnlogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotconn
 }
 
 func (l *iotconnsnlogic) Iotsync() {
-	serviceName := util.GetServiceName(l.svcCtx.Config.RestConf)
+	serviceName := l.svcCtx.GetInstanceId()
 	connectionIds := []string{}
 	l.svcCtx.Connection.Range(func(key, value interface{}) bool {
 		switch v := key.(type) {

@@ -31,7 +31,7 @@ func GetRegistryParameters(c rest.RestConf) (serviceName, ip, portStr string) {
 	return
 }
 
-func GetServiceName(c rest.RestConf) string {
+func GetServiceName(c rest.RestConf) string { // Not uniquely identified as a cluster node
 	serviceName := os.Getenv("SERVICE_NAME")
 	if serviceName == "" {
 		serviceName = c.Name

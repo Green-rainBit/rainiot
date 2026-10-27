@@ -19,14 +19,13 @@ import (
 
 var serverError = []byte("server error")
 
-func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
+func NewGatewayr(conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
 	return &Gateway{
 		pingInterval: c.WsConf.PingInterval,
 		pingWait:     c.WsConf.PingWait,
 		Logger:       logx.WithContext(context.Background()),
 		connection:   conn,
 		redis:        redis,
-		serverName:   serverName,
 	}
 }
 
@@ -34,7 +33,6 @@ type Gateway struct {
 	logx.Logger
 	pingInterval time.Duration
 	pingWait     time.Duration
-	serverName   string
 	Fn           func(connId string, message []byte) ([]byte, bool, error)
 	connection   Connection
 	redis        *redis.ClusterClient
