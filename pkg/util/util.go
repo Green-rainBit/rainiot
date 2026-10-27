@@ -37,7 +37,6 @@ func GetServiceName(c rest.RestConf) string {
 		serviceName = c.Name
 	}
 	return serviceName
-
 }
 
 func GetGrpcRegistryParameters(serviceName, listenOn string) (ip, portStr string) {

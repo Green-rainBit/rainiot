@@ -2,6 +2,7 @@ package mq
 
 import (
 	"context"
+	"fmt"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/queue"
 	"time"
@@ -19,6 +20,7 @@ const (
 
 // ErrNatsNotConnected NATS 未连接时返回的错误。
 var ErrNatsNotConnected = nats.ErrConnectionClosed
+var ErrNatsConnIdNotNull = fmt.Errorf("connId in nats not null")
 
 type deviceNatsCli struct {
 	conn        queue.Queue
@@ -53,6 +55,9 @@ func NewDeviceCli(serviceName string, cfg *openconfig.MQConfig) (*deviceNatsCli,
 func (d *deviceNatsCli) Push(ctx context.Context, connId string, mesage []byte) ([]byte, bool, error) {
 	if d.conn == nil {
 		return nil, false, ErrNatsNotConnected
+	}
+	if connId == "" {
+		return nil, false, ErrNatsConnIdNotNull
 	}
 	msg := message.NewMessage(watermill.NewUUID(), mesage)
 	msg.Metadata.Set("ServiceName", d.serviceName)

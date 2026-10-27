@@ -1,10 +1,10 @@
 {
-  "Name": "iotdevice-api",
+  "Name": "iotdevice_api",
   "Host": "0.0.0.0",
   "Port": 8888,
   "Log": {
     "Mode": "file",
-    "Path": "logs/iotdevice-api"
+    "Path": "logs/iotdevice_api"
   },
   "Loki": {
     "Enable": false,
@@ -21,7 +21,7 @@
     "Pass": ""
   },
   "Rpc": {
-    "Name": "iotdevice_grpc",
+    "Name": "iotdevice.grpc",
     "ListenOn": "0.0.0.0:9090"
   },
   "mq": {

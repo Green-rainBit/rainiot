@@ -4,7 +4,8 @@
   "Port": 8888,
   "Log": {
     "Mode": "file",
-    "Path": "logs/iotws-api"
+    "Path": "logs/iotws-api",
+    "MaxContentLength": 1024
   },
   "Loki": {
     "Enable": false,

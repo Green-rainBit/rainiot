@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"log"
 	"strings"
+	"sync/atomic"
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/model"
@@ -34,7 +35,19 @@ type ServiceContext struct {
 
 func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
 	cf, ok, err := configcli.SyncConfig(openConfig, func(data string) {
-		json.Unmarshal([]byte(data), c)
+
+		var current atomic.Pointer[config.Config]
+		var next config.Config
+
+		err := json.Unmarshal([]byte(data), &next)
+		if err != nil {
+			logx.Errorf("invalid config: %v", err)
+			return
+		}
+		current.Store(&next)
+
+		c = &next
+
 	})
 	if err != nil {
 		log.Fatalf("init sync config err: %v", err)

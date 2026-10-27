@@ -36,13 +36,11 @@ func (c *connection) Store(connId string, conn any) (old any, replaced bool) {
 }
 
 func (c *connection) Delete(connId string, conn any) bool {
-	_, replaced := c.soketMap.Swap(connId, conn)
-	if replaced {
+	if c.soketMap.CompareAndDelete(connId, conn) {
 		atomic.AddInt64(&c.count, -1)
-		c.soketMap.Delete(connId)
+		return true
 	}
-	return replaced
-
+	return false
 }
 
 func (c *connection) GetConnByConnId(connId string) (any, bool) {
@@ -54,7 +52,7 @@ func (c *connection) GetConnByCount() int64 {
 }
 
 func (c *connection) Take(count int64) []any {
-	conns := make([]any, count)
+	conns := make([]any, 0, count)
 	i := int64(0)
 	c.soketMap.Range(func(key, conn any) bool {
 

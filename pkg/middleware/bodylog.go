@@ -29,7 +29,7 @@ func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
-		logx.WithContext(r.Context()).Infof(
+		logx.WithContext(r.Context()).Debug(
 			"request body size=%d content-type=%s", len(body), r.Header.Get("Content-Type"))
 		if len(body) > 0 {
 			logx.WithContext(r.Context()).Infof("body: %s", string(body))

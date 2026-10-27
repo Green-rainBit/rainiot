@@ -113,9 +113,9 @@ func (n *nacosClient) InitRegisterInstance(c rest.RestConf) error {
 	if err != nil {
 		return fmt.Errorf("failed to register service: %w", err)
 	}
-	n.Logger.Info("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", n.config.DataId, n.groupOrDefault(n.config.Group), ip, port)
+	n.Logger.Info("[Nacos] registered instance: service=%s group=%s ip=%s port=%d", serviceName, n.groupOrDefault(n.config.Group), ip, port)
 
-	go handleShutdown(n.namingCli, n.config.DataId, ip, port)
+	go handleShutdown(n.namingCli, serviceName, ip, port)
 	return nil
 }
 

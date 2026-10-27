@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/pkg/cache"
 
 	"github.com/lxzan/gws"
@@ -18,12 +19,14 @@ import (
 
 var serverError = []byte("server error")
 
-func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient) *Gateway {
+func NewGatewayr(serverName string, conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
 	return &Gateway{
-		Logger:     logx.WithContext(context.Background()),
-		connection: conn,
-		redis:      redis,
-		serverName: serverName,
+		pingInterval: c.WsConf.PingInterval,
+		pingWait:     c.WsConf.PingWait,
+		Logger:       logx.WithContext(context.Background()),
+		connection:   conn,
+		redis:        redis,
+		serverName:   serverName,
 	}
 }
 
@@ -35,28 +38,12 @@ type Gateway struct {
 	Fn           func(connId string, message []byte) ([]byte, bool, error)
 	connection   Connection
 	redis        *redis.ClusterClient
+	stopPing     func()
 }
 
 func (g *Gateway) OnOpen(socket *gws.Conn) {
 	_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
 	SetKeepAlive(socket.NetConn())
-}
-
-func (g *Gateway) ServerOnClose(socket *gws.Conn, err error) {
-	if err != nil {
-		socket.WriteMessage(gws.OpcodeText, []byte(err.Error()))
-	}
-	connId, ok := socket.Session().Load("connId")
-	if ok {
-		switch coid := connId.(type) {
-		case string:
-			g.redis.Del(context.Background(), cache.GetCacheConn(coid))
-			g.connection.Delete(coid, socket)
-		default:
-
-		}
-	}
-	socket.NetConn().Close()
 }
 
 // CloseAll 优雅关闭所有 WebSocket 连接。
@@ -65,6 +52,7 @@ func (g *Gateway) ServerOnClose(socket *gws.Conn, err error) {
 // WriteClose 内部为 CAS 幂等,重复调用安全;关闭会触发 OnClose 回调,
 // 由其负责清理 redis 中的 connId 缓存与连接表。
 func (g *Gateway) CloseAll() {
+	g.stopPing()
 	g.connection.Range(func(key, value any) bool {
 		if socket, ok := value.(*gws.Conn); ok {
 			_ = socket.WriteClose(1001, []byte("server shutting down"))
@@ -75,6 +63,9 @@ func (g *Gateway) CloseAll() {
 }
 
 func (g *Gateway) OnClose(socket *gws.Conn, err error) {
+	if err != nil {
+		socket.WriteMessage(gws.OpcodeText, []byte(err.Error()))
+	}
 	connId, ok := socket.Session().Load("connId")
 	if ok {
 		switch coid := connId.(type) {
@@ -101,7 +92,6 @@ func (g *Gateway) OnPing(socket *gws.Conn, payload []byte) {
 
 func (g *Gateway) OnPong(socket *gws.Conn, payload []byte) {
 	_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
-	_ = socket.WritePong(payload)
 }
 
 func (g *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
@@ -112,13 +102,14 @@ func (g *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	case false:
 		by, _, err := g.Fn("", message.Bytes())
 		if err != nil {
-			defer g.ServerOnClose(socket, err)
+			defer g.OnClose(socket, err)
 			return
 		}
 		sn := g.extractSn(by)
 		if sn != "" {
 			socket.Session().Store("connId", sn)
 			g.connection.Store(sn, socket)
+			_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
 		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:
@@ -156,7 +147,7 @@ func (g *Gateway) extractSn(payload []byte) string {
 	return string(payload[start : start+end])
 }
 
-func (g *Gateway) StartPing() (stop func()) {
+func (g *Gateway) StartPing() {
 	done := make(chan struct{})
 	go func() {
 		t := time.NewTicker(g.pingInterval)
@@ -175,7 +166,9 @@ func (g *Gateway) StartPing() (stop func()) {
 			}
 		}
 	}()
-	return func() { close(done) }
+	g.stopPing = func() {
+		close(done)
+	}
 }
 
 // SetKeepAlive 从 net.Conn 中提取 TCP 连接并设置 keep-alive。
