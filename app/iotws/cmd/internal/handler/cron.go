@@ -7,7 +7,6 @@ import (
 	logiccron "rainiot/app/iotws/cmd/internal/logic/cron"
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
-	"rainiot/pkg/util"
 
 	"github.com/hibiken/asynq"
 	"github.com/robfig/cron/v3"
@@ -25,7 +24,7 @@ func Register(serverCtx *svc.ServiceContext) *asynq.ServeMux {
 	mux := asynq.NewServeMux()
 
 	//scheduler job
-	mux.Handle(cache.GetWsBalancedPublishCache(util.GetServiceName(serverCtx.Config.RestConf)), logic.NewWsBalancedHandler(serverCtx))
+	mux.Handle(cache.GetWsBalancedPublishCache(serverCtx.GetInstanceId()), logic.NewWsBalancedHandler(serverCtx))
 
 	return mux
 }

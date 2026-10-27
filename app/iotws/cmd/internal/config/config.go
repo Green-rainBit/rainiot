@@ -17,7 +17,8 @@ type Config struct {
 	rest.RestConf
 	Rpc struct {
 		zrpc.RpcClientConf
-		Model string `json:",optional"`
+		Model             string `json:",optional"`
+		DeviceServiceName string `json:",default=iotdevice.grpc"`
 	} `json:",optional"`
 	CacheRedis      redis.RedisConf
 	DeviceServerMap map[string][]string `json:"DeviceServerMap,optional"`

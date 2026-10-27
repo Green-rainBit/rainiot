@@ -65,13 +65,13 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	configcli := c
 	if registrycli != nil && c.Rpc.Model == "nacos" {
 		if c.Rpc.RpcClientConf.Target == "" {
-			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl("iotdevice.grpc")
+			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl(c.Rpc.DeviceServiceName)
 		}
 	} else if c.Rpc.Model == "instances" {
 		resolver.Register(instances.NewBuilder(func() []string {
-			return configcli.GetHealthyInstances("iotdevice.grpc")
+			return configcli.GetHealthyInstances(c.Rpc.DeviceServiceName)
 		}))
-		c.Rpc.RpcClientConf.Target = "instances://iotdevice.grpc"
+		c.Rpc.RpcClientConf.Target = "instances://" + c.Rpc.DeviceServiceName
 	}
 
 	connection := ws.NewConnection()

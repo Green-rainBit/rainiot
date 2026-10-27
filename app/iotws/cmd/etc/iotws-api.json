@@ -49,7 +49,7 @@
   "MiddlewaresConf": {
     "Recover": true
   },
-  "TransportModel": "nats",
+  "TransportModel": "http",
   "AlarmConfig": {
     "Key1": "",
     "Enabled": false

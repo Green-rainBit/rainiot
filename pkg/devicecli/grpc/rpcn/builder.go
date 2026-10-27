@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"rainiot/pkg/devicecli/grpc"
+	"strings"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"
 	"github.com/nacos-group/nacos-sdk-go/v2/common/logger"
@@ -25,12 +26,15 @@ func (b *builder) Build(target resolver.Target, conn resolver.ClientConn, opts r
 	if groupName == "" {
 		groupName = "DEFAULT_GROUP"
 	}
-
+	serviceName := strings.TrimPrefix(target.URL.Path, "/")
+	if serviceName == "" {
+		serviceName = grpc.DefaultDeviceServiceName // 兜底
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	pipe := make(chan []string)
 
 	initial, err := b.client.SelectInstances(vo.SelectInstancesParam{
-		ServiceName: grpc.DefaultDeviceServiceName,
+		ServiceName: serviceName,
 		GroupName:   groupName,
 		HealthyOnly: true,
 	})
@@ -57,7 +61,7 @@ func (b *builder) Build(target resolver.Target, conn resolver.ClientConn, opts r
 	}
 
 	subscribeParam := &vo.SubscribeParam{
-		ServiceName:       grpc.DefaultDeviceServiceName,
+		ServiceName:       serviceName,
 		GroupName:         groupName,
 		SubscribeCallback: callback,
 	}
