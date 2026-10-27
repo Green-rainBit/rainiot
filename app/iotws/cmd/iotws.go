@@ -79,6 +79,10 @@ func main() {
 		ctx.CloseWs()
 		cr.Stop()
 		srv.Shutdown()
+
+		insp := asynq.NewInspectorFromRedisClient(ctx.Redis)
+		_ = insp.DeleteQueue(cache.WsBalanceQueue(ctx.GetInstanceId()), true)
+		_ = insp.Close()
 	})
 
 	server.Start()

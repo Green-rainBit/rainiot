@@ -68,13 +68,18 @@ func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionI
 	err error,
 ) {
 	pipe := l.svcCtx.Redis.Pipeline()
-	cmds := make([]*redis.StatusCmd, len(connectionIds))
+	cmds := make([]*redis.Cmd, len(connectionIds))
+	const renewConnLua = `
+			local v = redis.call("GET", KEYS[1])
+			if not v then return -1 end
+			if v ~= ARGV[1] then return 0 end
+			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
+			`
 
 	for i, connectionId := range connectionIds {
-		cmds[i] = pipe.SetArgs(ctx, cache.GetCacheConn(connectionId), instanceId, redis.SetArgs{
-			Mode: "XX",
-			TTL:  cache.ConnTime,
-		})
+		cmds[i] = pipe.Eval(ctx, renewConnLua,
+			[]string{cache.GetCacheConn(connectionId)}, instanceId,
+			cache.ConnTime.Milliseconds())
 	}
 
 	_, err = pipe.Exec(ctx)

@@ -136,13 +136,27 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 		}
 		body, err := json.Marshal(pub)
 		if err != nil {
-			return
-		}
-		task := asynq.NewTask(cache.GetWsBalancedPublishCache(disconnectWsServerName), body)
-		if _, err := l.svcCtx.AsynqClient.Enqueue(task); err != nil {
-			l.Logger.Errorf("enqueue balance task failed: %v", err)
+			// 不要 return，否则后面的目标实例都不会收到任务
+			l.Logger.Errorf("marshal balance plan failed target=%s: %v", disconnectWsServerName, err)
+			continue
 		}
 
+		queue := cache.WsBalanceQueue(disconnectWsServerName)
+		task := asynq.NewTask(cache.TaskTypeWsBalance, body)
+
+		info, err := l.svcCtx.AsynqClient.Enqueue(task,
+			asynq.Queue(queue),
+			asynq.MaxRetry(3),
+			asynq.Timeout(30*time.Second),
+		)
+		if err != nil {
+			l.Logger.Errorf("enqueue balance task failed target=%s queue=%s: %v",
+				disconnectWsServerName, queue, err)
+			continue
+		}
+
+		l.Logger.Infof("balance task enqueued target=%s queue=%s taskId=%s targets=%d",
+			disconnectWsServerName, queue, info.ID, len(val.ReceiveWsserver))
 	}
 
 }

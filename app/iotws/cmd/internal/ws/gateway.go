@@ -73,10 +73,7 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 		switch coid := connId.(type) {
 		case string:
 			if cur, ok := g.connection.GetConnByConnId(coid); ok && cur == socket {
-				instanceId := g.redis.Get(context.Background(), cache.GetCacheConn(coid)).String()
-				if instanceId == g.instanceId {
-					g.redis.Del(context.Background(), cache.GetCacheConn(coid))
-				}
+				g.releaseConn(coid)
 				g.connection.Delete(coid, socket)
 			}
 		default:
@@ -84,6 +81,20 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 		}
 	}
 	socket.NetConn().Close()
+}
+
+func (g *Gateway) releaseConn(connId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := redis.NewScript(`
+		if redis.call("GET", KEYS[1]) == ARGV[1] then
+		return redis.call("DEL", KEYS[1])
+		end
+		return 0
+		`).Run(ctx, g.redis,
+		[]string{cache.GetCacheConn(connId)}, g.instanceId).Err(); err != nil {
+		g.Logger.Errorf("[ws] release conn key failed connId=%s: %v", connId, err)
+	}
 }
 
 // var releaseConnScript = redis.NewScript(`
