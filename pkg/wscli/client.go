@@ -5,24 +5,22 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"strconv"
 	"time"
+
+	"rainiot/pkg/configcli"
 )
 
 type WsCli interface {
-	Push(ctx context.Context, event string, message []byte) (*http.Response, error)
-	Pull(ctx context.Context) (message []byte, err error)
+	Ping(ctx context.Context, event string, message []byte) (*http.Response, error)
 }
 
 type wsCli struct {
-	http.Client
-	u func() (*url.URL, error)
+	httpCli httpc.Client
 }
 
-func NewWsCli(model string, fn func() (string, uint64, error), dviceHost string, devicePort uint64) *wsCli {
-
+func NewWsCli(confCli configcli.ConfigCli) *wsCli {
 	wsCli := &wsCli{
+		confCli: confCli,
 		Client: http.Client{
 			Transport: &http.Transport{
 				MaxIdleConns:        100,
@@ -30,19 +28,19 @@ func NewWsCli(model string, fn func() (string, uint64, error), dviceHost string,
 			},
 			Timeout: 5 * time.Second,
 		},
-		u: func() (*url.URL, error) {
-			ip, port := "", uint64(0)
-			return &url.URL{
-				Scheme: "http",
-				Host:   ip + ":" + strconv.FormatUint(port, 10),
-				Path:   "/notice",
-			}, nil
-		},
+		// u: func() (*url.URL, error) {
+		// 	ip, port := "", uint64(0)
+		// 	return &url.URL{
+		// 		Scheme: "http",
+		// 		Host:   ip + ":" + strconv.FormatUint(port, 10),
+		// 		Path:   "/notice",
+		// 	}, nil
+		// },
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, event string, req Request) (*http.Response, error) {
+func (d *wsCli) Push(ctx context.Context, serviceName, event string, req Request) (*http.Response, error) {
 	jsonBytes, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -52,7 +50,7 @@ func (d *wsCli) Push(ctx context.Context, event string, req Request) (*http.Resp
 		// todo
 		return nil, nil
 	case "http":
-		deviceUrl, err := d.u()
+		deviceUrl := d.httpCli.GetHealthyInstances(serviceName)
 		if err != nil {
 			return nil, err
 		}

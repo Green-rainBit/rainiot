@@ -5,14 +5,12 @@ package logic
 
 import (
 	"context"
-	errorse "errors"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
 	"rainiot/pkg/cache"
 	"rainiot/pkg/errors"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -38,14 +36,13 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 	// 使用 GET 替代 EXISTS+GET 两次往返：GET 返回 nil 即表示 key 不存在。
 	cur, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheConn(req.GetSn())).Result()
 	switch {
-	case errorse.Is(err, redis.Nil):
-		// 未连接，继续
 	case err != nil:
 		return nil, err
 	case cur == req.GetServiceName():
-		// 同实例重复登录：刷新 TTL（幂等）
+		l.svcCtx.Redis.Exists(l.ctx, cache.GetCacheConn(req.GetSn())).Result()
+		return
 	default:
-		// 其他实例持有：拒绝或接管，二选一
+		// l.svcCtx.Registry
 	}
 
 	_, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetSn())

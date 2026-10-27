@@ -16,6 +16,7 @@ import (
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/queue"
 	"rainiot/pkg/registry"
+	"rainiot/pkg/wscli"
 
 	_ "github.com/lib/pq"
 	"github.com/nats-io/nats.go/jetstream"
@@ -31,6 +32,7 @@ type ServiceContext struct {
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
 	Queue         queue.Queue
+	wscli         *wscli.WsCli
 }
 
 func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
@@ -83,6 +85,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	svcCtx.Redis = client
 	svcCtx.Registry = registrycli
 	svcCtx.Queue = mq
+	svcCtx.wscli = wscli.NewWsCli(configcli)
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
 	// 以避免 svc → logic → svc 的循环导入。此处仅持有引用用于 defer Close。
