@@ -52,7 +52,9 @@ func (g *Gateway) OnOpen(socket *gws.Conn) {
 // WriteClose 内部为 CAS 幂等,重复调用安全;关闭会触发 OnClose 回调,
 // 由其负责清理 redis 中的 connId 缓存与连接表。
 func (g *Gateway) CloseAll() {
-	g.stopPing()
+	if g.stopPing != nil {
+		g.stopPing()
+	}
 	g.connection.Range(func(key, value any) bool {
 		if socket, ok := value.(*gws.Conn); ok {
 			_ = socket.WriteClose(1001, []byte("server shutting down"))
@@ -101,7 +103,7 @@ func (g *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 	switch ok {
 	case false:
 		by, _, err := g.Fn("", message.Bytes())
-		if err != nil {
+		if len(by) == 0 || err != nil {
 			defer g.OnClose(socket, err)
 			return
 		}
@@ -110,10 +112,11 @@ func (g *Gateway) OnMessage(socket *gws.Conn, message *gws.Message) {
 			socket.Session().Store("connId", sn)
 			g.connection.Store(sn, socket)
 			_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
+
 		}
 		socket.WriteMessage(message.Opcode, by)
 	case true:
-		_ = socket.SetReadDeadline(time.Now().Add(g.pingInterval + g.pingWait))
+		_ = socket.SetDeadline(time.Now().Add(g.pingInterval + g.pingWait))
 		by, sync, err := g.Fn(connId.(string), message.Bytes())
 		if err != nil {
 			defer socket.WriteMessage(message.Opcode, []byte(err.Error()))

@@ -43,9 +43,9 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 	req.ConnId = connId
 	req.ServiceName = d.serviceName
 
-	_, err := d.client.DeviceConnect(ctx, req)
+	resp, err := d.client.DeviceConnect(ctx, req)
 	if err == nil {
-		return nil, true, nil
+		return []byte(resp.Message), true, nil
 	}
 	if !isRetryable(err) {
 		return nil, true, err
@@ -59,10 +59,10 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 		}
 
 		callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		_, err = d.client.DeviceConnect(callCtx, req)
+		resp, err = d.client.DeviceConnect(callCtx, req)
 		cancel()
 		if err == nil {
-			return nil, true, nil
+			return []byte(resp.Message), true, nil
 		}
 		if !isRetryable(err) {
 			return nil, true, err

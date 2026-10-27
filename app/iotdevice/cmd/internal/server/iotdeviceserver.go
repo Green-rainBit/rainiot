@@ -6,6 +6,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
@@ -30,7 +31,11 @@ func (s *IotdeviceServer) DeviceConnect(ctx context.Context, in *pb.DeviceConnec
 	if err != nil {
 		return nil, err
 	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.DeviceConnectResp{
-		Message: resp.Message,
+		Message: string(bytes),
 	}, nil
 }

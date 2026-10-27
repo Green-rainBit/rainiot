@@ -40,7 +40,7 @@ func StartRouter(svcCtx *svc.ServiceContext) {
 		return
 	}
 	logger := logx.WithContext(context.Background())
-	subject := svcCtx.Config.MQ.Topic
+	subject := svcCtx.Config().MQ.Topic
 
 	// ── Consumer 1: 入口路由 ──
 	ingressConsumer, err := svcCtx.Queue.Subscribe(context.Background(), subject)

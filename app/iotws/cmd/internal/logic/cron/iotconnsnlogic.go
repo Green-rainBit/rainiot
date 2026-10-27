@@ -5,6 +5,7 @@ package logic
 
 import (
 	"context"
+	"errors"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
@@ -84,12 +85,11 @@ func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionI
 
 	// 逐个检查命令状态
 	for i, cmd := range cmds {
-		if cmd.Err() == redis.Nil {
+		if errors.Is(cmd.Err(), redis.Nil) {
 			// key 不存在，未设置
 			failConnectionIds = append(failConnectionIds, connectionIds[i])
 		} else if cmd.Err() != nil {
 			l.Logger.Error("setIfExistsBatchResult redis command error for key %s: %v", cache.GetCacheConn(connectionIds[i]), cmd.Err())
-			failConnectionIds = append(failConnectionIds, connectionIds[i])
 		} else {
 			// 成功
 			successKeys = append(successKeys, connectionIds[i])

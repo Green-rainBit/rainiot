@@ -3,7 +3,6 @@ package config
 import (
 	"rainiot/pkg/log/logloki"
 	"rainiot/pkg/openconfig"
-	"sync"
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
@@ -18,5 +17,4 @@ type Config struct {
 	CacheRedis redis.RedisConf
 	MQ         openconfig.MQConfig `json:"mq"`
 	Loki       logloki.LokiConf    `json:",optional"`
-	mu         sync.RWMutex
 }

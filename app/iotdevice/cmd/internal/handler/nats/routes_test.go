@@ -5,9 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/cmd/internal/svc"
-	"rainiot/pkg/openconfig"
 
 	"github.com/ThreeDotsLabs/watermill/message"
 )
@@ -29,17 +27,7 @@ func (f *fakeQueue) Close() error { return nil }
 // main() 只有在其返回后才会执行 s.Start() / server.Start()；
 // 若重新引入 select{}，iotdevice 将不监听任何端口，本测试会超时失败。
 func TestStartRouterReturns(t *testing.T) {
-	svcCtx := &svc.ServiceContext{
-		Config: &config.Config{
-
-			MQ: openconfig.MQConfig{
-				Type:  "nats",
-				Topic: "iot_device_test",
-				NATS:  openconfig.NATSConfig{},
-			},
-		},
-		Queue: &fakeQueue{},
-	}
+	svcCtx := &svc.ServiceContext{}
 
 	done := make(chan struct{})
 	go func() {

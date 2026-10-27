@@ -246,17 +246,14 @@ func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]
 		lastErr = err
 
 		logx.WithContext(ctx).Error("connId: ", connId, "[deviceCli] client ", cli.Information(), " push failed, fallback next: ", err.Error())
+	}
+	if lastErr != nil && d.alarmSender != nil {
+		msg := "connId: " + connId + " [deviceCli] all clients push failed: " +
+			lastErr.Error() + d.Information()
 		util.Go(func() {
-			if d.alarmSender != nil {
-				d.alarmSender.Send(ctx, "connId: "+connId+" [deviceCli] all clients push failed: "+lastErr.Error()+d.Information())
-			}
+			_ = d.alarmSender.Send(context.WithoutCancel(ctx), msg)
 		})
 	}
-	util.Go(func() {
-		if d.alarmSender != nil {
-			d.alarmSender.Send(ctx, "connId: "+connId+" [deviceCli] all clients push failed: "+lastErr.Error()+d.Information())
-		}
-	})
 
 	return nil, false, lastErr
 }

@@ -27,14 +27,15 @@ func RequestBodyLog(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-
+		const maxLogBody = 1024
 		r.Body = io.NopCloser(bytes.NewBuffer(body))
-		logx.WithContext(r.Context()).Debug(
-			"request body size=%d content-type=%s", len(body), r.Header.Get("Content-Type"))
 		if len(body) > 0 {
-			logx.WithContext(r.Context()).Infof("body: %s", string(body))
+			s := body
+			if len(s) > maxLogBody {
+				s = s[:maxLogBody]
+			}
+			logx.WithContext(r.Context()).Debugf("body(%d bytes): %s", len(body), s)
 		}
-
 		next(w, r)
 	}
 }
