@@ -1,7 +1,7 @@
 syntax = "v1"
 
 type Request {
-    ConnId string `form:"connId,optional"`
+	ConnId string `form:"connId,optional"`
 }
 
 type Response {
@@ -9,9 +9,10 @@ type Response {
 	Data string `json:"data"`
 }
 
-type Ntice {
-	Id   string `json:"id"`
-	Data string `json:"data"`
+type Notice {
+	ConnId   string `json:"connId"`
+	MessgeId string `json:"messgeId"`
+	Data     string `json:"data"`
 }
 
 type WsBalanced {
@@ -23,7 +24,7 @@ service iotws-api {
 	get /connect (Request)
 
 	@handler IotNoticeHandler
-	post /notice (Ntice)
+	post /notice (Notice)
 
 	@handler IotPingHandler
 	get /ping (Request)
