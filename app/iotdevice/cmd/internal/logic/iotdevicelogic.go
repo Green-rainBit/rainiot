@@ -5,7 +5,9 @@ package logic
 
 import (
 	"context"
+	"strings"
 
+	cmde "rainiot/pkg/constant/cmd"
 	"rainiot/pkg/errors"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
@@ -28,13 +30,17 @@ func (l iotdeviceLogic) Iotdevice(req types.IotdeviceReq) (*types.Response, erro
 	}
 	return resp, nil
 }
+
 func NewIotdeviceLogic(ctx context.Context, cmd string, svcCtx *svc.ServiceContext) IotdeviceLogic {
 	var logic IotdeviceLogic
 	switch cmd {
-	case "login":
+	case cmde.Login:
 		logic = newIotLoginLogic(ctx, svcCtx)
 	default:
 		logic = newIotErrorLogic(ctx, svcCtx)
+	}
+	if strings.HasSuffix(cmd, cmde.CmdAck) {
+		logic = newIotAckLogic(ctx, svcCtx)
 	}
 	return iotdeviceLogic{ctx: ctx, l: logic}
 }

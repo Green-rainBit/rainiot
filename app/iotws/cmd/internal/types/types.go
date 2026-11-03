@@ -6,6 +6,7 @@ package types
 type Ntice struct {
 	Id   string `json:"id"`
 	Data []byte `json:"data"`
+	Cmd  string `json:"cmd"`
 }
 
 type Request struct {

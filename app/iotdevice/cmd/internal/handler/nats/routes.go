@@ -5,6 +5,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
+	"rainiot/pkg/constant/cmd"
 	"rainiot/pkg/devicecli/grpc/pb"
 	"rainiot/pkg/util"
 
@@ -21,7 +22,9 @@ type cmdWorkerConfig struct {
 // cmdWorkers 注册所有需要二次消费的 cmd。每个 cmd 通过独立 NATS subject 实现隔离。
 // 慢 cmd 设小并发值防止占满资源，快 cmd 设大值保证高吞吐。
 var cmdWorkers = map[string]cmdWorkerConfig{
-	"login": {concurrency: 256},
+	cmd.Login: {concurrency: 256},
+
+	cmd.CmdAck: {concurrency: 256},
 	// "report":  {concurrency: 16},
 	// "upgrade": {concurrency: 8},
 }

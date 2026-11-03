@@ -24,11 +24,6 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 				Path:    "/notice",
 				Handler: IotNoticeHandler(serverCtx),
 			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/ping",
-				Handler: IotPingHandler(serverCtx),
-			},
 		},
 	)
 }

@@ -63,9 +63,9 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *wsH
 	}
 }
 
-func (d *wsHttpCli) Ping(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
+func (d *wsHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
 
-	resp, err := d.do(ctx, http.MethodPost, "/ping", connId, bytes.NewBuffer(message), d.headers)
+	resp, err := d.do(ctx, http.MethodPost, "/notice", connId, bytes.NewBuffer(message), d.headers)
 	if err != nil {
 		return nil, true, err
 	}
