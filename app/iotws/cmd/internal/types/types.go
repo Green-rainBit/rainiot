@@ -3,7 +3,7 @@
 
 package types
 
-type Ntice struct {
+type Notice struct {
 	Id   string `json:"id"`
 	Data []byte `json:"data"`
 	Cmd  string `json:"cmd"`

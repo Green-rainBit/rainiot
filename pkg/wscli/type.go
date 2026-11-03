@@ -1,7 +1,7 @@
 package wscli
 
 type Request struct {
-	Id   string `json:"id"`
-	Data []byte `json:"data"`
+	ConnId   string `json:"ConnId"`
+	MessgeId string `json:"messageId"`
+	Data     []byte `json:"data"`
 }
-

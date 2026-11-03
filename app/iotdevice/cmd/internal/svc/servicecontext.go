@@ -85,7 +85,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	svcCtx.Redis = client
 	svcCtx.Registry = registrycli
 	svcCtx.Queue = mq
-	wscli.NewWsCli(c.Name, svcCtx.config.Load())
+	wscli.NewWsCli(svcCtx.config.Load().Name, svcCtx.config.Load())
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
 	// 以避免 svc → logic → svc 的循环导入。此处仅持有引用用于 defer Close。

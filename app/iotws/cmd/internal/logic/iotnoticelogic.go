@@ -28,7 +28,7 @@ func NewIotNoticeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotNoti
 	}
 }
 
-func (l *IotNoticeLogic) IotNotice(req *types.Ntice) error {
+func (l *IotNoticeLogic) IotNotice(req *types.Notice) error {
 	conn, ok := l.svcCtx.Connection.GetConnByConnId(req.Id)
 	if !ok {
 		return errors.New("设备未连接")

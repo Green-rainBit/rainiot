@@ -6,6 +6,8 @@ import (
 
 	"rainiot/pkg/configcli"
 	"rainiot/pkg/wscli/httpc"
+
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -19,26 +21,39 @@ type WsCliInterface interface {
 
 type wsCli struct {
 	httpCli WsCliInterface
+	redis   *redis.ClusterClient
 }
 
 func NewWsCli(serviceName string, confCli configcli.ConfigCli) *wsCli {
 	wsCli := &wsCli{
-		httpCli: httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
+		httpCli: httpc.NewDeviceCli("", confCli.GetHealthyInstances),
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, serviceName, event string, req Request) ([]byte, bool, error) {
+func (d *wsCli) Push(ctx context.Context, serviceName, event string, req Request, Resp any) error {
 	jsonBytes, err := json.Marshal(req)
 	if err != nil {
-		return nil, false, err
+		return err
 	}
+
+	sub := d.redis.Subscribe(ctx, event+"Ack"+req.MessgeId)
+	defer sub.Close()
+
 	switch event {
 	case eventQueue:
 		// todo
-		return nil, false, err
+
 	case eventHttp:
-		return d.httpCli.Push(ctx, event, jsonBytes)
+		d.httpCli.Push(ctx, event, jsonBytes)
 	}
-	return nil, false, err
+	redisMessage, err := sub.ReceiveMessage(ctx)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal([]byte(redisMessage.Payload), Resp)
+	if err != nil {
+		return err
+	}
+	return nil
 }
