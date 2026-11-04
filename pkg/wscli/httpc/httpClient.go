@@ -20,6 +20,10 @@ type LoadBalancer interface {
 	Pick(instances []string) string
 }
 
+type WsHttpCliInterface interface {
+	Push(ctx context.Context, connId string, message []byte) ([]byte, error)
+}
+
 type wsHttpCli struct {
 	fn            func() []string
 	retryCount    int
@@ -63,18 +67,17 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *wsH
 	}
 }
 
-func (d *wsHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error) {
-
+func (d *wsHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
 	resp, err := d.do(ctx, http.MethodPost, "/notice", connId, bytes.NewBuffer(message), d.headers)
 	if err != nil {
-		return nil, true, err
+		return nil, err
 	}
 	if resp == nil {
-		return nil, true, nil
+		return nil, nil
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
-	return body, true, err
+	return body, err
 }
 
 // Do 执行 HTTP 请求，自动故障转移

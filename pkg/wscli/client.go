@@ -16,22 +16,22 @@ const (
 )
 
 type WsCliInterface interface {
-	Push(ctx context.Context, connId string, message []byte) ([]byte, bool, error)
+	Push(ctx context.Context, event string, req Request, Resp any) error
 }
 
 type wsCli struct {
-	httpCli WsCliInterface
+	httpCli httpc.WsHttpCliInterface
 	redis   *redis.ClusterClient
 }
 
 func NewWsCli(serviceName string, confCli configcli.ConfigCli) *wsCli {
 	wsCli := &wsCli{
-		httpCli: httpc.NewDeviceCli("", confCli.GetHealthyInstances),
+		httpCli: httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, serviceName, event string, req Request, Resp any) error {
+func (d *wsCli) Push(ctx context.Context, event string, req Request, Resp any) error {
 	jsonBytes, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -45,7 +45,10 @@ func (d *wsCli) Push(ctx context.Context, serviceName, event string, req Request
 		// todo
 
 	case eventHttp:
-		d.httpCli.Push(ctx, event, jsonBytes)
+		_, err = d.httpCli.Push(ctx, event, jsonBytes)
+		if err != nil {
+			return err
+		}
 	}
 	redisMessage, err := sub.ReceiveMessage(ctx)
 	if err != nil {

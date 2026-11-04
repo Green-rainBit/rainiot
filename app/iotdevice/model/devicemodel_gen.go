@@ -36,8 +36,10 @@ type (
 	}
 
 	Device struct {
-		Id int64  `db:"id"`
-		Sn string `db:"sn"`
+		Id  int64  `db:"id"`
+		Sn  string `db:"sn"`
+		Cer string `db:"cer"`
+		Key string `db:"key"`
 	}
 )
 

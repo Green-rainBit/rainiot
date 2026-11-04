@@ -12,6 +12,8 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/model"
+	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/redis"
 	"rainiot/pkg/configcli"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/queue"
@@ -28,11 +30,11 @@ import (
 type ServiceContext struct {
 	config        atomic.Pointer[config.Config]
 	DeviceModel   model.DeviceModel
-	Redis         *goredis.ClusterClient
+	Cache         cache.CacheCli
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
 	Queue         queue.Queue
-	wscli         *wscli.WsCliInterface
+	Wscli         wscli.WsCliInterface
 }
 
 func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
@@ -82,10 +84,10 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	}
 
 	svcCtx.DeviceModel = model.NewDeviceModel(conn)
-	svcCtx.Redis = client
+	svcCtx.Cache = redis.NewRedisClient(client)
 	svcCtx.Registry = registrycli
 	svcCtx.Queue = mq
-	wscli.NewWsCli(svcCtx.config.Load().Name, svcCtx.config.Load())
+	svcCtx.Wscli = wscli.NewWsCli(svcCtx.config.Load().Name, svcCtx.config.Load())
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
 	// 以避免 svc → logic → svc 的循环导入。此处仅持有引用用于 defer Close。
