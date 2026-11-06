@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	cmde "rainiot/pkg/constant/cmd"
-	"rainiot/pkg/errors"
+	"rainiot/pkg/errorx"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
@@ -26,7 +26,7 @@ type iotdeviceLogic struct {
 func (l iotdeviceLogic) Iotdevice(req types.IotdeviceReq) (*types.Response, error) {
 	resp, err := l.l.Iotdevice(req)
 	if err != nil {
-		return nil, errors.NewMyErrorWithCtx(l.ctx, err)
+		return nil, errorx.NewMyErrorWithCtx(l.ctx, err)
 	}
 	return resp, nil
 }

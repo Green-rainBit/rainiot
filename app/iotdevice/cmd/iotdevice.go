@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"rainiot/pkg/errorx"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"
 
@@ -21,6 +22,7 @@ import (
 	servergrpc "rainiot/app/iotdevice/cmd/internal/server"
 
 	"github.com/zeromicro/go-zero/rest"
+	"github.com/zeromicro/go-zero/rest/httpx"
 	"github.com/zeromicro/go-zero/zrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -37,6 +39,9 @@ func main() {
 
 	var ocf openconfig.OpenConfig
 	conf.MustLoad(*configNacosFile, &ocf)
+
+	// 业务错误统一输出 {"code":N,"msg":"..."}，供 devicecli/httpc 还原为 LogicError
+	httpx.SetErrorHandler(errorx.HTTPErrorHandler)
 
 	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
 	logWriter, err := plog.Setup(c.Log, c.Loki, c.MQ.NATS.Addresses)
@@ -61,6 +66,7 @@ func main() {
 			reflection.Register(grpcServer)
 		}
 	})
+	s.AddUnaryInterceptors(errorx.UnaryServerInterceptor())
 	defer s.Stop()
 	util.Go(func() { s.Start() })
 

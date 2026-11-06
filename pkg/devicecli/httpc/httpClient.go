@@ -3,11 +3,15 @@ package httpc
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
+
+	"rainiot/pkg/errorx"
 )
 
 const (
@@ -116,9 +120,20 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 		req.Header.Set("ConnId", connId)
 
 		resp, err := d.client.Do(req)
-		if err == nil && resp.StatusCode < 500 {
-			// 成功
-			return resp, nil
+		if err == nil {
+			switch {
+			case resp.StatusCode < 400:
+				return resp, nil
+			case resp.StatusCode < 500 &&
+				resp.StatusCode != http.StatusRequestTimeout &&
+				resp.StatusCode != http.StatusTooManyRequests:
+				// 4xx：业务错误，解析统一错误体后直接返回，不再重试/降级。
+				// 408/429 例外，属于调用错误，继续尝试下一个实例。
+				respBody, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				return nil, newLogicError(resp.StatusCode, respBody)
+			}
+			// 5xx/408/429：调用错误，继续尝试下一个实例
 		}
 		// 失败：记录错误，稍后重试下一个实例
 		if resp != nil && resp.Body != nil {
@@ -130,7 +145,20 @@ func (d *deviceHttpCli) do(ctx context.Context, method, path, connId string, bod
 		case <-time.After(d.retryInterval):
 		}
 	}
-	return nil, fmt.Errorf("所有实例请求均失败")
+	return nil, fmt.Errorf("All instance requests failed")
+}
+
+// newLogicError 把 4xx 响应还原成业务错误。
+// 服务端统一返回 {"code":N,"msg":"..."}，解析失败时退回 HTTP 状态码。
+func newLogicError(statusCode int, body []byte) error {
+	var e struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+	if json.Unmarshal(body, &e) == nil && e.Code != 0 {
+		return errorx.NewMyError(e.Code, e.Msg)
+	}
+	return errorx.NewMyError(statusCode, strings.TrimSpace(string(body)))
 }
 
 func (d *deviceHttpCli) Information() string {

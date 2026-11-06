@@ -9,6 +9,7 @@ import (
 	"rainiot/pkg/alarm"
 	conf_cli "rainiot/pkg/configcli"
 	"rainiot/pkg/devicecli/grpc"
+	"rainiot/pkg/errorx"
 	"rainiot/pkg/devicecli/httpc"
 	"rainiot/pkg/devicecli/mq"
 
@@ -244,6 +245,10 @@ func (d *deviceCli) Push(ctx context.Context, connId string, message []byte) ([]
 			return resp, shouldRespond, nil
 		}
 		lastErr = err
+
+		if !errorx.ShouldFallback(err) {
+			return nil, true, err
+		}
 
 		logx.WithContext(ctx).Error("connId: ", connId, "[deviceCli] client ", cli.Information(), " push failed, fallback next: ", err.Error())
 	}

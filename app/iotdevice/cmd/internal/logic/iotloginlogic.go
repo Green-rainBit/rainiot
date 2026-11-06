@@ -11,7 +11,7 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
 	"rainiot/pkg/cache"
-	"rainiot/pkg/errors"
+	"rainiot/pkg/errorx"
 	"rainiot/pkg/wscli"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -34,7 +34,7 @@ func newIotLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotLogin
 func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response, err error) {
 	if req.GetSn() == "" {
 		l.Logger.Errorf("device sn cannot be empty")
-		return nil, errors.NewMyError(5000, "device sn cannot be empty")
+		return nil, errorx.NewMyError(5000, "device sn cannot be empty")
 	}
 	// 使用 GET 替代 EXISTS+GET 两次往返：GET 返回 nil 即表示 key 不存在。
 	ciphertext := req.GetData().AsMap()["ciphertext"]
@@ -56,20 +56,20 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 	}
 	if !ok {
 		l.Logger.Errorf("device not found")
-		return nil, errors.NewMyError(4000, "device not found")
+		return nil, errorx.NewMyError(4000, "device not found")
 	}
 	if ciphertext != nil {
 		if !device.Key.Valid {
 			l.Logger.Errorf("device key is null")
-			return nil, errors.NewMyError(4000, "device key is null")
+			return nil, errorx.NewMyError(4000, "device key is null")
 		}
 		date, err := l.decryptGCM(ciphertext.([]byte), []byte(device.Key.String))
 		if err != nil {
 			l.Logger.Errorf("decryptGCM error: %v", err)
-			return nil, errors.NewMyError(5000, "decryptGCM error")
+			return nil, errorx.NewMyError(5000, "decryptGCM error")
 		}
 		if string(date) != device.Sn {
-			return nil, errors.NewMyError(4000, "device sn not match")
+			return nil, errorx.NewMyError(4000, "device sn not match")
 		}
 	}
 	if onlined {
@@ -104,7 +104,7 @@ func (l *iotLoginLogic) loginVerification(loginCache cache.Login, ciphertext any
 		return nil
 	}
 
-	return errors.NewMyError(4000, "device already login")
+	return errorx.NewMyError(4000, "device already login")
 }
 
 func (l *iotLoginLogic) decryptGCM(ciphertext, key []byte) ([]byte, error) {
@@ -120,7 +120,7 @@ func (l *iotLoginLogic) decryptGCM(ciphertext, key []byte) ([]byte, error) {
 
 	nonceSize := gcm.NonceSize()
 	if len(ciphertext) < nonceSize {
-		return nil, errors.NewMyError(4001, "ciphertext too short")
+		return nil, errorx.NewMyError(4001, "ciphertext too short")
 	}
 
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]

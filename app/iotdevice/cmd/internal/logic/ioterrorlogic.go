@@ -8,7 +8,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
-	"rainiot/pkg/errors"
+	"rainiot/pkg/errorx"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
@@ -28,5 +28,5 @@ func newIotErrorLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotError
 }
 
 func (l *iotErrorLogic) Iotdevice(req types.IotdeviceReq) (*types.Response, error) {
-	return nil, errors.NewMyError(4001, "unsupported cmd: "+req.GetCmd())
+	return nil, errorx.NewMyError(4001, "unsupported cmd: "+req.GetCmd())
 }
