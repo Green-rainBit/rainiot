@@ -75,20 +75,20 @@ type deviceCli struct {
 	chain map[string]DeviceCli // 优先级链: grpc → nats → http
 
 	// 热重载所需的构造依赖
-	serviceName string
-	confCli     conf_cli.ConfigCli
-	zrpcConf    zrpc.RpcClientConf
-	mqConfig    *openconfig.MQConfig
-	alarmSender alarm.Sender
+	currentServiceName string
+	confCli            conf_cli.ConfigCli
+	zrpcConf           zrpc.RpcClientConf
+	mqConfig           *openconfig.MQConfig
+	alarmSender        alarm.Sender
 }
 
 func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, mqConfig *openconfig.MQConfig, alarmSender alarm.Sender) *deviceCli {
 	d := &deviceCli{
-		serviceName: serviceName,
-		confCli:     confCli,
-		zrpcConf:    zrpcConf,
-		mqConfig:    mqConfig,
-		alarmSender: alarmSender,
+		currentServiceName: serviceName,
+		confCli:            confCli,
+		zrpcConf:           zrpcConf,
+		mqConfig:           mqConfig,
+		alarmSender:        alarmSender,
 	}
 	d.initLocked(ParseMode(model))
 	return d
@@ -99,13 +99,13 @@ func (d *deviceCli) initLocked(mode PushMode) {
 	d.mode = mode
 
 	if mode&ModeGRPC != 0 {
-		d.grpc = grpc.NewDeviceCli(d.serviceName, d.zrpcConf)
+		d.grpc = grpc.NewDeviceCli(d.currentServiceName, d.zrpcConf)
 	}
 	if mode&ModeHTTP != 0 {
-		d.http = httpc.NewDeviceCli(d.serviceName, d.confCli.GetHealthyInstances)
+		d.http = httpc.NewDeviceCli(d.currentServiceName, d.confCli.GetHealthyInstances)
 	}
 	if mode&ModeNATS != 0 && d.mqConfig != nil {
-		mqCli, err := mq.NewDeviceCli(d.serviceName, d.mqConfig)
+		mqCli, err := mq.NewDeviceCli(d.currentServiceName, d.mqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] init nats client failed (disabled): %v", err)
 		} else {
@@ -140,14 +140,14 @@ func (d *deviceCli) Reload(model string) {
 	// ── 锁外：创建新客户端（网络 I/O，不阻塞 Push）──
 	var newGrpc, newHttp, newNats DeviceCli
 	if newMode&ModeGRPC != 0 && oldGrpc == nil {
-		newGrpc = grpc.NewDeviceCli(d.serviceName, d.zrpcConf)
+		newGrpc = grpc.NewDeviceCli(d.currentServiceName, d.zrpcConf)
 	}
 	if newMode&ModeHTTP != 0 && oldHttp == nil {
-		newHttp = httpc.NewDeviceCli(d.serviceName, d.confCli.GetHealthyInstances)
+		newHttp = httpc.NewDeviceCli(d.currentServiceName, d.confCli.GetHealthyInstances)
 	}
 	if newMode&ModeNATS != 0 && oldNats == nil && d.mqConfig != nil {
 		var err error
-		newNats, err = mq.NewDeviceCli(d.serviceName, d.mqConfig)
+		newNats, err = mq.NewDeviceCli(d.currentServiceName, d.mqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] hot-reload nats failed (disabled): %v", err)
 		}

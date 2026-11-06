@@ -45,7 +45,7 @@ func (lb *RoundRobin) Pick(instances []string) string {
 func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *deviceHttpCli {
 	return &deviceHttpCli{
 		fn: func() []string {
-			return fn(serviceName)
+			return fn("iotdevice_api")
 		},
 		retryCount: 3,
 		headers:    map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},

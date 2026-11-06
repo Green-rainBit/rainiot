@@ -36,7 +36,6 @@ func IotwsHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 			defer func() {
 				if r := recover(); r != nil {
 					logx.Errorf("[ws] ReadLoop panic connId=%s: %v\n%s", connId, r, debug.Stack())
-					_ = socket.NetConn().Close()
 					svcCtx.CleanupSocket(socket) // 见下方说明
 				}
 			}()

@@ -9,6 +9,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
+	"rainiot/pkg/wscli/cmd"
 
 	"github.com/lxzan/gws"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -39,6 +40,18 @@ func (l *IotNoticeLogic) IotNotice(req *types.Notice) error {
 	default:
 		// return message, conn.(*gws.Conn).WriteMessage(gws.OpcodeText, message)
 	}
+
 	return nil
+
+}
+
+func (l *IotNoticeLogic) Handle(req *types.Notice) error {
+	switch req.Cmd {
+	case cmd.WsKill:
+		killLogic := NewIotKillLogic(l.ctx, l.svcCtx)
+		return killLogic.IotKill(req)
+	default:
+		return nil
+	}
 
 }

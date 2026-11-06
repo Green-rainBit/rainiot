@@ -10,14 +10,16 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/zeromicro/go-zero/core/stores/builder"
 	"github.com/zeromicro/go-zero/core/stores/sqlx"
+	"github.com/zeromicro/go-zero/core/stringx"
 )
 
 var (
-	deviceFieldNames          = []string{"id", "sn"}
+	deviceFieldNames          = builder.RawFieldNames(&Device{}, true)
 	deviceRows                = strings.Join(deviceFieldNames, ",")
-	deviceRowsExpectAutoSet   = "sn"
-	deviceRowsWithPlaceHolder = "sn=$1"
+	deviceRowsExpectAutoSet   = strings.Join(stringx.Remove(deviceFieldNames, "id", "create_at", "create_time", "created_at", "update_at", "update_time", "updated_at"), ",")
+	deviceRowsWithPlaceHolder = builder.PostgreSqlJoin(stringx.Remove(deviceFieldNames, "id", "create_at", "create_time", "created_at", "update_at", "update_time", "updated_at"))
 )
 
 type (
@@ -25,7 +27,6 @@ type (
 		Insert(ctx context.Context, data *Device) (sql.Result, error)
 		FindOne(ctx context.Context, id int64) (*Device, error)
 		FindOneBySn(ctx context.Context, sn string) (*Device, error)
-		GetOneBySn(ctx context.Context, sn string) (*Device, bool, error)
 		Update(ctx context.Context, data *Device) error
 		Delete(ctx context.Context, id int64) error
 	}
@@ -36,17 +37,17 @@ type (
 	}
 
 	Device struct {
-		Id  int64  `db:"id"`
-		Sn  string `db:"sn"`
-		Cer string `db:"cer"`
-		Key string `db:"key"`
+		Id  int64          `db:"id"`
+		Sn  string         `db:"sn"`
+		Cer sql.NullString `db:"cer"`
+		Key sql.NullString `db:"key"`
 	}
 )
 
 func newDeviceModel(conn sqlx.SqlConn) *defaultDeviceModel {
 	return &defaultDeviceModel{
 		conn:  conn,
-		table: "device",
+		table: `"public"."device"`,
 	}
 }
 
@@ -84,29 +85,15 @@ func (m *defaultDeviceModel) FindOneBySn(ctx context.Context, sn string) (*Devic
 	}
 }
 
-func (m *defaultDeviceModel) GetOneBySn(ctx context.Context, sn string) (*Device, bool, error) {
-	var resp Device
-	query := fmt.Sprintf("select %s from %s where sn = $1 limit 1", deviceRows, m.table)
-	err := m.conn.QueryRowCtx(ctx, &resp, query, sn)
-	switch err {
-	case nil:
-		return &resp, true, nil
-	case sqlx.ErrNotFound:
-		return nil, false, nil
-	default:
-		return nil, false, err
-	}
-}
-
 func (m *defaultDeviceModel) Insert(ctx context.Context, data *Device) (sql.Result, error) {
-	query := fmt.Sprintf("insert into %s (%s) values ($1)", m.table, deviceRowsExpectAutoSet)
-	ret, err := m.conn.ExecCtx(ctx, query, data.Sn)
+	query := fmt.Sprintf("insert into %s (%s) values ($1, $2, $3)", m.table, deviceRowsExpectAutoSet)
+	ret, err := m.conn.ExecCtx(ctx, query, data.Sn, data.Cer, data.Key)
 	return ret, err
 }
 
 func (m *defaultDeviceModel) Update(ctx context.Context, newData *Device) error {
-	query := fmt.Sprintf("update %s set %s where id = $2", m.table, deviceRowsWithPlaceHolder)
-	_, err := m.conn.ExecCtx(ctx, query, newData.Sn, newData.Id)
+	query := fmt.Sprintf("update %s set %s where id = $1", m.table, deviceRowsWithPlaceHolder)
+	_, err := m.conn.ExecCtx(ctx, query, newData.Id, newData.Sn, newData.Cer, newData.Key)
 	return err
 }
 

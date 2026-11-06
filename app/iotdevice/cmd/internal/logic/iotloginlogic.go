@@ -51,6 +51,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 	}
 	device, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetSn())
 	if err != nil {
+		l.Logger.Errorf("device model get error: %v", err)
 		return nil, err
 	}
 	if !ok {
@@ -58,7 +59,11 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		return nil, errors.NewMyError(4000, "device not found")
 	}
 	if ciphertext != nil {
-		date, err := l.decryptGCM(ciphertext.([]byte), []byte(device.Key))
+		if !device.Key.Valid {
+			l.Logger.Errorf("device key is null")
+			return nil, errors.NewMyError(4000, "device key is null")
+		}
+		date, err := l.decryptGCM(ciphertext.([]byte), []byte(device.Key.String))
 		if err != nil {
 			l.Logger.Errorf("decryptGCM error: %v", err)
 			return nil, errors.NewMyError(5000, "decryptGCM error")
@@ -81,6 +86,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		IsEncrypt:   ciphertext != nil,
 	})
 	if err != nil {
+		l.Logger.Errorf("redis set error: %v", err)
 		return nil, err
 	}
 	return &types.Response{

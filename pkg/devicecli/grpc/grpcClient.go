@@ -13,10 +13,10 @@ import (
 )
 
 type deviceGrpcCli struct {
-	client        pb.IotdeviceClient
-	serviceName   string
-	retryCount    int
-	retryInterval time.Duration
+	client             pb.IotdeviceClient
+	currentServiceName string
+	retryCount         int
+	retryInterval      time.Duration
 }
 
 const (
@@ -25,13 +25,13 @@ const (
 	defaultRetryInterval     = 1 * time.Second
 )
 
-func NewDeviceCli(serviceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
+func NewDeviceCli(currentServiceName string, zrpcConf zrpc.RpcClientConf) *deviceGrpcCli {
 	conn := zrpc.MustNewClient(zrpcConf)
 	return &deviceGrpcCli{
-		client:        pb.NewIotdeviceClient(conn.Conn()),
-		serviceName:   serviceName,
-		retryCount:    defaultRetryCount,
-		retryInterval: defaultRetryInterval,
+		client:             pb.NewIotdeviceClient(conn.Conn()),
+		currentServiceName: currentServiceName,
+		retryCount:         defaultRetryCount,
+		retryInterval:      defaultRetryInterval,
 	}
 }
 
@@ -41,7 +41,7 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 		return nil, true, err
 	}
 	req.ConnId = connId
-	req.ServiceName = d.serviceName
+	req.ServiceName = d.currentServiceName
 
 	resp, err := d.client.DeviceConnect(ctx, req)
 	if err == nil {
@@ -72,7 +72,7 @@ func (d *deviceGrpcCli) Push(ctx context.Context, connId string, message []byte)
 }
 
 func (d *deviceGrpcCli) Information() string {
-	return "device grpc client, serviceName: " + d.serviceName
+	return "device grpc client, serviceName: " + d.currentServiceName
 }
 
 func isRetryable(err error) bool {
