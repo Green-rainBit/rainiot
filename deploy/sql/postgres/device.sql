@@ -37,8 +37,3 @@ ALTER TABLE "public"."device" ADD CONSTRAINT "idx_sn" UNIQUE ("sn");
 -- Primary Key structure for table device
 -- ----------------------------
 ALTER TABLE "public"."device" ADD CONSTRAINT "device_pkey" PRIMARY KEY ("id");
-goctl model pg datasource \
-  -url "postgres://用户名:密码@127.0.0.1:5432/postgres?sslmode=disable" \
-  -s public \
-  -t device \
-  -dir app/iotdevice/model
