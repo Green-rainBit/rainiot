@@ -23,7 +23,7 @@
   "Rpc": {
     "Model": "instances"
   },
-  "DeviceServerMap": {},
+  "DeviceServers": {},
   "mq": {
     "type": "nats",
     "topic": "iot_device",
@@ -49,7 +49,7 @@
   "MiddlewaresConf": {
     "Recover": true
   },
-  "TransportModel": "http",
+  "TransportModel": "http,grpc",
   "AlarmConfig": {
     "Key1": "",
     "Enabled": false

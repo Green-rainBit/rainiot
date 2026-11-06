@@ -72,7 +72,7 @@ type deviceCli struct {
 	http  DeviceCli
 	grpc  DeviceCli
 	nats  DeviceCli
-	chain map[string]DeviceCli // 优先级链: grpc → nats → http
+	chain []DeviceCli // 优先级链: grpc → nats → http
 
 	// 热重载所需的构造依赖
 	currentServiceName string
@@ -215,15 +215,15 @@ func closeIfPossible(cli DeviceCli) {
 
 // rebuildChain 按优先级 grpc → nats → http 重建链。
 func (d *deviceCli) rebuildChain() {
-	d.chain = make(map[string]DeviceCli, 3)
+	d.chain = make([]DeviceCli, 0, 3)
 	if d.grpc != nil {
-		d.chain["grpc"] = d.grpc
+		d.chain = append(d.chain, d.grpc)
 	}
 	if d.nats != nil {
-		d.chain["nats"] = d.nats
+		d.chain = append(d.chain, d.nats)
 	}
 	if d.http != nil {
-		d.chain["http"] = d.http
+		d.chain = append(d.chain, d.http)
 	}
 }
 

@@ -69,7 +69,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		}
 	} else if c.Rpc.Model == "instances" {
 		resolver.Register(instances.NewBuilder(func() []string {
-			return configcli.GetHealthyInstances(c.Rpc.DeviceServiceName)
+			return configcli.GetHealthyInstances("grpc")
 		}))
 		c.Rpc.RpcClientConf.Target = "instances://" + c.Rpc.DeviceServiceName
 	}

@@ -20,13 +20,16 @@ type Config struct {
 		Model             string `json:",optional"`
 		DeviceServiceName string `json:",default=iotdevice.grpc"`
 	} `json:",optional"`
-	CacheRedis      redis.RedisConf
-	DeviceServerMap map[string][]string `json:"DeviceServerMap,optional"`
-	Loki            logloki.LokiConf    `json:",optional"`
-	TransportModel  string              `json:",optional"`
-	AlarmConfig     alarm.Config        `json:",optional"`
-	MQ              openconfig.MQConfig `json:"mq,optional"`
-	WsConf          WsConf              `json:",optional"`
+	CacheRedis    redis.RedisConf
+	DeviceServers struct {
+		Httpc []string `json:",optional"`
+		Grpc  []string `json:",optional"`
+	}
+	Loki           logloki.LokiConf    `json:",optional"`
+	TransportModel string              `json:",optional"`
+	AlarmConfig    alarm.Config        `json:",optional"`
+	MQ             openconfig.MQConfig `json:"mq,optional"`
+	WsConf         WsConf              `json:",optional"`
 
 	mu sync.RWMutex
 }
@@ -44,10 +47,16 @@ type WsConf struct {
 	CheckUtf8Enabled    bool          `json:",default=false"`
 }
 
-func (c *Config) GetHealthyInstances(serviceName string) []string {
+func (c *Config) GetHealthyInstances(model string) []string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.DeviceServerMap[serviceName]
+	switch model {
+	case "httpc":
+		return c.DeviceServers.Httpc
+	case "grpc":
+		return c.DeviceServers.Grpc
+	}
+	return nil
 }
 
 // Lock 在热更新写入前加锁，返回解锁函数
