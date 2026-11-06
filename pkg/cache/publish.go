@@ -3,8 +3,8 @@ package cache
 import "regexp"
 
 var (
-	WsBalancedPublishCache = "publish:iot:ws:balanced:"
-	TaskTypeWsBalance      = "ws:balance"
+	WsBalancedPublishCache = "ws:balanced:publish:"
+	TaskTypeWsBalance      = "iot:cache:"
 	queueNameRe            = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 )
 

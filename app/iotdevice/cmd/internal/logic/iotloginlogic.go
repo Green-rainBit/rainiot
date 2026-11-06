@@ -81,7 +81,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 			l.Logger.Errorf("push offline error: %v", err)
 		}
 	}
-	err = l.svcCtx.Cache.SetLoginBySn(l.ctx, cache.GetCacheConn(req.GetSn()), cache.Login{
+	err = l.svcCtx.Cache.SetLoginBySn(l.ctx, req.GetSn(), cache.Login{
 		ServiceName: req.GetServiceName(),
 		IsEncrypt:   ciphertext != nil,
 	})
@@ -90,6 +90,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		return nil, err
 	}
 	return &types.Response{
+		Cmd:    req.GetCmd() + "Ack",
 		ConnId: req.GetSn(),
 	}, nil
 }

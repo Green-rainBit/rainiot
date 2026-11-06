@@ -3,6 +3,7 @@ package wscli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"rainiot/pkg/configcli"
 	"rainiot/pkg/wscli/httpc"
@@ -24,21 +25,28 @@ type wsCli struct {
 	redis   *redis.ClusterClient
 }
 
-func NewWsCli(serviceName string, confCli configcli.ConfigCli) *wsCli {
+func NewWsCli(serviceName string, confCli configcli.ConfigCli, rdb *redis.ClusterClient) *wsCli {
 	wsCli := &wsCli{
 		httpCli: httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
+		redis:   rdb,
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, event string, req Request, Resp any) error {
+func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) error {
+	if d.redis == nil {
+		return errors.New("wscli: redis client is nil")
+	}
+
 	jsonBytes, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-
-	sub := d.redis.Subscribe(ctx, event+"Ack"+req.MessgeId)
-	defer sub.Close()
+	var sub *redis.PubSub
+	if resp != nil {
+		sub = d.redis.Subscribe(ctx, event+"Ack"+req.MessgeId)
+		defer sub.Close()
+	}
 
 	switch event {
 	case eventQueue:
@@ -50,13 +58,16 @@ func (d *wsCli) Push(ctx context.Context, event string, req Request, Resp any) e
 			return err
 		}
 	}
-	redisMessage, err := sub.ReceiveMessage(ctx)
-	if err != nil {
-		return err
+	if resp != nil {
+		redisMessage, err := sub.ReceiveMessage(ctx)
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal([]byte(redisMessage.Payload), resp)
+		if err != nil {
+			return err
+		}
 	}
-	err = json.Unmarshal([]byte(redisMessage.Payload), Resp)
-	if err != nil {
-		return err
-	}
+
 	return nil
 }
