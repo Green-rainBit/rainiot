@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"rainiot/app/iotws/cmd/internal/svc"
-	"rainiot/pkg/devicecli"
+	"rainiot/pkg/client/devicecli"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

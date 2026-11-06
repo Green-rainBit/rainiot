@@ -7,11 +7,11 @@ import (
 	"sync"
 
 	"rainiot/pkg/alarm"
-	conf_cli "rainiot/pkg/configcli"
-	"rainiot/pkg/devicecli/grpc"
+	conf_cli "rainiot/pkg/client/configcli"
+	"rainiot/pkg/client/devicecli/grpc"
+	"rainiot/pkg/client/devicecli/httpc"
+	"rainiot/pkg/client/devicecli/mq"
 	"rainiot/pkg/errorx"
-	"rainiot/pkg/devicecli/httpc"
-	"rainiot/pkg/devicecli/mq"
 
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/util"

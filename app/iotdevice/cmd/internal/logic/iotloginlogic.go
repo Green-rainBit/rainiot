@@ -11,8 +11,8 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
 	"rainiot/pkg/cache"
+	"rainiot/pkg/client/wscli"
 	"rainiot/pkg/errorx"
-	"rainiot/pkg/wscli"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )

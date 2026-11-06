@@ -1,7 +1,7 @@
 package configcli
 
 import (
-	"rainiot/pkg/configcli/nacos"
+	"rainiot/pkg/client/configcli/nacos"
 	"rainiot/pkg/openconfig"
 )
 

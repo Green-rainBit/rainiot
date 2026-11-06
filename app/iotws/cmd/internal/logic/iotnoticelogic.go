@@ -9,7 +9,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
-	"rainiot/pkg/wscli/cmd"
+	"rainiot/pkg/client/wscli/cmd"
 
 	"github.com/lxzan/gws"
 	"github.com/zeromicro/go-zero/core/logx"

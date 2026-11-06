@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"rainiot/pkg/configcli"
-	"rainiot/pkg/wscli/httpc"
+	"rainiot/pkg/client/configcli"
+	"rainiot/pkg/client/wscli/httpc"
 
 	"github.com/redis/go-redis/v9"
 )

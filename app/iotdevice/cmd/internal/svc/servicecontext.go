@@ -14,11 +14,11 @@ import (
 	"rainiot/app/iotdevice/model"
 	"rainiot/pkg/cache"
 	"rainiot/pkg/cache/redis"
-	"rainiot/pkg/configcli"
+	"rainiot/pkg/client/configcli"
+	"rainiot/pkg/client/wscli"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/queue"
 	"rainiot/pkg/registry"
-	"rainiot/pkg/wscli"
 
 	_ "github.com/lib/pq"
 	"github.com/nats-io/nats.go/jetstream"

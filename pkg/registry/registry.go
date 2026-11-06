@@ -1,7 +1,7 @@
 package registry
 
 import (
-	"rainiot/pkg/devicecli/grpc/rpcn"
+	"rainiot/pkg/client/devicecli/grpc/rpcn"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/registry/nacos"
 

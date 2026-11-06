@@ -5,8 +5,8 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/logic"
 	"rainiot/app/iotdevice/cmd/internal/svc"
+	"rainiot/pkg/client/devicecli/grpc/pb"
 	"rainiot/pkg/constant/cmd"
-	"rainiot/pkg/devicecli/grpc/pb"
 	"rainiot/pkg/util"
 
 	"github.com/ThreeDotsLabs/watermill/message"

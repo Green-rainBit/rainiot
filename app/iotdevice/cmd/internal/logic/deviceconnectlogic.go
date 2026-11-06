@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
+	"rainiot/pkg/client/devicecli/grpc/pb"
 	"rainiot/pkg/constant/cmd"
 	cmde "rainiot/pkg/constant/cmd"
-	"rainiot/pkg/devicecli/grpc/pb"
 
 	"github.com/zeromicro/go-zero/core/logx"
 )
