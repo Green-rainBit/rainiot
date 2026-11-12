@@ -5,9 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
+
 	"net/http"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -46,7 +47,7 @@ func (lb *RoundRobin) Pick(instances []string) string {
 	return instances[n%uint64(len(instances))]
 }
 
-func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *wsHttpCli {
+func NewDeviceCli(serviceName string, fn func(serviceName string) string) *wsHttpCli {
 	return &wsHttpCli{
 		fn: func() []string {
 			return fn(serviceName)

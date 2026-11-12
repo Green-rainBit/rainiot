@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
@@ -80,7 +79,7 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 			severNumber++
 		}
 	}
-	err = l.svcCtx.Redis.Set(ctx, cache.GetCacheWsBalancedLast(), time.Now().Unix(), 0).Err()
+	err = l.svcCtx.Cache.SetWsBalancedLastTime(context.Background())
 	if err != nil {
 		l.Logger.Error(fmt.Sprintf("wsBalancedHandler iotsync set error: %v", err))
 		return err

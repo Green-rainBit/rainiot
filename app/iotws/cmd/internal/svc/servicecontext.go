@@ -12,21 +12,26 @@ import (
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
 	"rainiot/pkg/alarm"
+	"rainiot/pkg/cache"
+	wsca "rainiot/pkg/cache/redis/ws"
 	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/devicecli"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/registry"
 	"rainiot/pkg/util"
 
+	"github.com/hibiken/asynq"
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/rest"
 )
 
 type ServiceContext struct {
+	Srv        *asynq.Server
+	Inspector  *asynq.Inspector
 	instanceId string
 	Config     *config.Config
-	Redis      *redis.ClusterClient
+	Cache      cache.CacheCliWs
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
 	Upgrader   *gws.Upgrader
@@ -60,17 +65,28 @@ func NewServiceContext(c *config.Config, ocp openconfig.OpenConfig) *ServiceCont
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
+	cacheCliWs := wsca.NewCacheCliWsClient(client)
 	c.DeviCliConfig.BuildDeviceServiceUrl(ocp)
 
 	connection := ws.NewConnection()
-	gateway := ws.NewGatewayr(instanceId, connection, client, c)
+	gateway := ws.NewGatewayr(instanceId, connection, cacheCliWs, c)
 	gateway.StartPing()
 	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, &c.DeviCliConfig, alarm.New(c.AlarmConfig))
+	queueName := cache.WsBalanceQueue(instanceId)
+	srv := asynq.NewServerFromRedisClient(
+		client,
+		asynq.Config{
+			Concurrency: 10, // 并发 worker 数
+			Queues:      map[string]int{queueName: 1},
+		},
+	)
 
 	return &ServiceContext{
+		Srv:        srv,
+		Inspector:  asynq.NewInspectorFromRedisClient(client),
 		instanceId: instanceId,
 		Config:     c,
-		Redis:      client,
+		Cache:      cacheCliWs,
 		Connection: connection,
 		DeviceCli:  devCli,
 		gateway:    gateway,

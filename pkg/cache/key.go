@@ -7,7 +7,7 @@ const (
 	cacheKeyPrefix      = "iot:cache:"
 	cacheWsServerName   = "iot:ws:server:"
 	cacheWsConn         = "iot:ws:conn:"
-	cacheWsBalancedLast = "iot:ws:balance:last"
+	cacheWsBalancedLast = "iot:ws:balance:last" // balance in time
 
 	ConnTime = time.Minute * 6
 

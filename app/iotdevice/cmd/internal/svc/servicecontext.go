@@ -30,7 +30,7 @@ import (
 type ServiceContext struct {
 	config        atomic.Pointer[config.Config]
 	DeviceModel   model.DeviceModel
-	Cache         cache.CacheCli
+	Cache         cache.CacheCliDevice
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
 	Queue         queue.Queue

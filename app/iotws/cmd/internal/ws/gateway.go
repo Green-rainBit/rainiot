@@ -13,20 +13,19 @@ import (
 	"rainiot/pkg/cache"
 
 	"github.com/lxzan/gws"
-	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
 var serverError = []byte("server error")
 
-func NewGatewayr(instanceId string, conn Connection, redis *redis.ClusterClient, c *config.Config) *Gateway {
+func NewGatewayr(instanceId string, conn Connection, cache cache.CacheCliWs, c *config.Config) *Gateway {
 	return &Gateway{
 		instanceId:   instanceId,
 		pingInterval: c.WsConf.PingInterval,
 		pingWait:     c.WsConf.PingWait,
 		Logger:       logx.WithContext(context.Background()),
 		connection:   conn,
-		redis:        redis,
+		cache:        cache,
 	}
 }
 
@@ -37,7 +36,7 @@ type Gateway struct {
 	pingWait     time.Duration
 	Fn           func(connId string, message []byte) ([]byte, bool, error)
 	connection   Connection
-	redis        *redis.ClusterClient
+	cache        cache.CacheCliWs
 	stopPing     func()
 }
 
@@ -86,7 +85,7 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 func (g *Gateway) releaseConn(connId string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := redis.NewScript(`
+	if err := g.cache.Script(ctx, `
 		local v = redis.call("GET", KEYS[1])
 		if not v then return 0 end
 		local owner = v
@@ -96,27 +95,10 @@ func (g *Gateway) releaseConn(connId string) {
 		end
 		if owner ~= ARGV[1] then return 0 end
 		return redis.call("DEL", KEYS[1])
-		`).Run(ctx, g.redis,
-		[]string{cache.GetCacheConn(connId)}, g.instanceId).Err(); err != nil {
+		`, connId, g.instanceId); err != nil {
 		g.Logger.Errorf("[ws] release conn key failed connId=%s: %v", connId, err)
 	}
 }
-
-// var releaseConnScript = redis.NewScript(`
-// if redis.call("GET", KEYS[1]) == ARGV[1] then
-//   return redis.call("DEL", KEYS[1])
-// end
-// return 0
-// `)
-
-// func (g *Gateway) releaseConn(connId string) {
-// 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-// 	defer cancel()
-// 	if err := releaseConnScript.Run(ctx, g.redis,
-// 		[]string{cache.GetCacheConn(connId)}, g.instanceId).Err(); err != nil {
-// 		g.Logger.Errorf("[ws] release conn key failed connId=%s: %v", connId, err)
-// 	}
-// }
 
 func (g *Gateway) OnPing(socket *gws.Conn, payload []byte) {
 	_, ok := socket.Session().Load("connId")

@@ -21,8 +21,7 @@ type Config struct {
 	Loki           logloki.LokiConf `json:""`
 
 	AlarmConfig alarm.Config `json:""`
-
-	WsConf WsConf `json:""`
+	WsConf      WsConf       `json:""`
 }
 
 // WsConf WebSocket 服务器配置。

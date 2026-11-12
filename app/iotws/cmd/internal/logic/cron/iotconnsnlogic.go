@@ -5,13 +5,11 @@ package logic
 
 import (
 	"context"
-	"errors"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/pkg/cache"
 
 	"github.com/lxzan/gws"
-	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
@@ -68,34 +66,11 @@ func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionI
 	failConnectionIds []string,
 	err error,
 ) {
-	pipe := l.svcCtx.Redis.Pipeline()
-	cmds := make([]*redis.Cmd, len(connectionIds))
-	// value 是 cache.Login 的 JSON（{"serviceName":"<instanceId>",...}），
-	// 需要按 serviceName 比较；同时兼容历史遗留的纯 instanceId 字符串。
-	const renewConnLua = `
-			local v = redis.call("GET", KEYS[1])
-			if not v then return -1 end
-			local owner = v
-			local ok, login = pcall(cjson.decode, v)
-			if ok and type(login) == "table" then
-				owner = login.serviceName or ""
-			end
-			if owner ~= ARGV[1] then return 0 end
-			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
-			`
-
-	for i, connectionId := range connectionIds {
-		cmds[i] = pipe.Eval(ctx, renewConnLua,
-			[]string{cache.GetCacheConn(connectionId)}, instanceId,
-			cache.ConnTime.Milliseconds())
-	}
-
-	_, err = pipe.Exec(ctx)
-	if err != nil && !errors.Is(err, redis.Nil) {
+	cmds, err := l.svcCtx.Cache.RenewalWsConnByInstanceId(ctx, l.svcCtx.GetInstanceId(), connectionIds)
+	if err != nil {
 		// Pipeline 本身出现的致命错误（网络等）
 		return nil, nil, err
 	}
-
 	// 逐个检查命令返回值：1=续期成功，-1=key 不存在，0=已被其他实例接管
 	for i, cmd := range cmds {
 		result, cmdErr := cmd.Int64()
