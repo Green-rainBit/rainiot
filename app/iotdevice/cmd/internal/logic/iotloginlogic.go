@@ -41,7 +41,6 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 
 	loginCache, onlined, err := l.svcCtx.Cache.GetLoginBySn(l.ctx, req.GetSn())
 	if err != nil {
-		l.Logger.Errorf("cache get login by sn error: %v", err)
 		return nil, err
 	}
 	err = l.loginVerification(loginCache, ciphertext)
@@ -86,7 +85,6 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		IsEncrypt:   ciphertext != nil,
 	})
 	if err != nil {
-		l.Logger.Errorf("redis set error: %v", err)
 		return nil, err
 	}
 	return &types.Response{

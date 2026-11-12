@@ -3,12 +3,14 @@ package redisc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"rainiot/pkg/cache/consts"
 
 	"github.com/redis/go-redis/v9"
 	goredis "github.com/redis/go-redis/v9"
+	"github.com/zeromicro/go-zero/core/logx"
 )
 
 type redisCilws struct {
@@ -32,6 +34,7 @@ func (r *redisCilws) Script(ctx context.Context, src, connId, instanceId string)
 func (r *redisCilws) SetWsBalancedLastTime(ctx context.Context) error {
 	err := r.redis.Set(ctx, consts.GetCacheWsBalancedLast(), time.Now().Unix(), 0).Err()
 	if err != nil {
+		logx.WithContext(ctx).Error(fmt.Sprintf("set ws balanced last time: %v", err))
 		return err
 	}
 	return nil
@@ -40,6 +43,7 @@ func (r *redisCilws) SetWsBalancedLastTime(ctx context.Context) error {
 func (r *redisCilws) SetConnNumByInstanceId(ctx context.Context, instanceId string, num int64) error {
 	err := r.redis.Set(ctx, consts.GetWsBalancedPublishCache(instanceId), num, time.Duration(5)*time.Second).Err()
 	if err != nil {
+		logx.WithContext(ctx).Error(fmt.Sprintf("set conn num by instance id: %v", err))
 		return err
 	}
 	return nil
@@ -47,7 +51,7 @@ func (r *redisCilws) SetConnNumByInstanceId(ctx context.Context, instanceId stri
 
 func (r *redisCilws) RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*redis.Cmd, error) {
 	pipe := r.redis.Pipeline()
-	cmds := make([]*redis.Cmd, len(connectionIds))
+	cmds := make([]*goredis.Cmd, len(connectionIds))
 
 	const renewConnLua = `
 			local v = redis.call("GET", KEYS[1])

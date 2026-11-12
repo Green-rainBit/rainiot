@@ -3,7 +3,6 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
@@ -81,7 +80,6 @@ func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) e
 	}
 	err = l.svcCtx.Cache.SetWsBalancedLastTime(context.Background())
 	if err != nil {
-		l.Logger.Error(fmt.Sprintf("wsBalancedHandler iotsync set error: %v", err))
 		return err
 	}
 	return nil
