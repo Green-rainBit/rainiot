@@ -85,17 +85,7 @@ func (g *Gateway) OnClose(socket *gws.Conn, err error) {
 func (g *Gateway) releaseConn(connId string) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	if err := g.cache.Script(ctx, `
-		local v = redis.call("GET", KEYS[1])
-		if not v then return 0 end
-		local owner = v
-		local ok, login = pcall(cjson.decode, v)
-		if ok and type(login) == "table" then
-			owner = login.serviceName or ""
-		end
-		if owner ~= ARGV[1] then return 0 end
-		return redis.call("DEL", KEYS[1])
-		`, connId, g.instanceId); err != nil {
+	if err := g.cache.SetInstanceIdByconnId(ctx, connId, g.instanceId); err != nil {
 		g.Logger.Errorf("[ws] release conn key failed connId=%s: %v", connId, err)
 	}
 }

@@ -13,6 +13,32 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
+const (
+	renewConnLua = `
+			local v = redis.call("GET", KEYS[1])
+			if not v then return -1 end
+			local owner = v
+			local ok, login = pcall(cjson.decode, v)
+			if ok and type(login) == "table" then
+				owner = login.serviceName or ""
+			end
+			if owner ~= ARGV[1] then return 0 end
+			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
+			`
+
+	renewConn = `
+		local v = redis.call("GET", KEYS[1])
+		if not v then return 0 end
+		local owner = v
+		local ok, login = pcall(cjson.decode, v)
+		if ok and type(login) == "table" then
+			owner = login.serviceName or ""
+		end
+		if owner ~= ARGV[1] then return 0 end
+		return redis.call("DEL", KEYS[1])
+		`
+)
+
 type redisCilws struct {
 	redis *goredis.ClusterClient
 }
@@ -23,9 +49,10 @@ func NewCacheCliWsClient(redis *goredis.ClusterClient) *redisCilws {
 	}
 }
 
-func (r *redisCilws) Script(ctx context.Context, src, connId, instanceId string) error {
-	if err := goredis.NewScript(src).Run(ctx, r.redis,
+func (r *redisCilws) SetInstanceIdByconnId(ctx context.Context, connId, instanceId string) error {
+	if err := goredis.NewScript(renewConn).Run(ctx, r.redis,
 		[]string{consts.GetCacheConn(connId)}, instanceId).Err(); err != nil {
+		logx.WithContext(ctx).Error(fmt.Sprintf("set instanceId by connId: %v", err))
 		return err
 	}
 	return nil
@@ -52,18 +79,6 @@ func (r *redisCilws) SetConnNumByInstanceId(ctx context.Context, instanceId stri
 func (r *redisCilws) RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*redis.Cmd, error) {
 	pipe := r.redis.Pipeline()
 	cmds := make([]*goredis.Cmd, len(connectionIds))
-
-	const renewConnLua = `
-			local v = redis.call("GET", KEYS[1])
-			if not v then return -1 end
-			local owner = v
-			local ok, login = pcall(cjson.decode, v)
-			if ok and type(login) == "table" then
-				owner = login.serviceName or ""
-			end
-			if owner ~= ARGV[1] then return 0 end
-			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
-			`
 
 	for i, connectionId := range connectionIds {
 		cmds[i] = pipe.Eval(ctx, renewConnLua,

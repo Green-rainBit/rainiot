@@ -17,7 +17,7 @@ type CacheCliDevice interface {
 }
 
 type CacheCliWs interface {
-	Script(ctx context.Context, src, connId, instanceId string) error
+	SetInstanceIdByconnId(ctx context.Context, connId, instanceId string) error
 	SetWsBalancedLastTime(ctx context.Context) error
 	SetConnNumByInstanceId(ctx context.Context, instanceId string, num int64) error
 	RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*goredis.Cmd, error)
