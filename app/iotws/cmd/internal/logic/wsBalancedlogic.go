@@ -7,7 +7,7 @@ import (
 
 	"rainiot/app/iotws/cmd/internal/svc"
 	"rainiot/app/iotws/cmd/internal/types"
-	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/ctypes"
 
 	"github.com/hibiken/asynq"
 	"github.com/lxzan/gws"
@@ -29,7 +29,7 @@ func NewWsBalancedHandler(svcCtx *svc.ServiceContext) *wsBalancedHandler {
 
 // every one minute exec : if return err != nil , asynq will retry
 func (l *wsBalancedHandler) ProcessTask(ctx context.Context, task *asynq.Task) error {
-	pub := cache.WsBalancedPublish{}
+	pub := ctypes.WsBalancedPublish{}
 	err := json.Unmarshal(task.Payload(), &pub)
 	if err != nil {
 		return err

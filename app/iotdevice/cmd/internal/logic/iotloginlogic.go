@@ -10,7 +10,7 @@ import (
 
 	"rainiot/app/iotdevice/cmd/internal/svc"
 	"rainiot/app/iotdevice/cmd/internal/types"
-	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/ctypes"
 	"rainiot/pkg/client/wscli"
 	"rainiot/pkg/errorx"
 
@@ -41,7 +41,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 
 	loginCache, onlined, err := l.svcCtx.Cache.GetLoginBySn(l.ctx, req.GetSn())
 	if err != nil {
-		l.Logger.Errorf("redis get error: %v", err)
+		l.Logger.Errorf("cache get login by sn error: %v", err)
 		return nil, err
 	}
 	err = l.loginVerification(loginCache, ciphertext)
@@ -51,7 +51,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 	}
 	device, ok, err := l.svcCtx.DeviceModel.GetOneBySn(l.ctx, req.GetSn())
 	if err != nil {
-		l.Logger.Errorf("device model get error: %v", err)
+		l.Logger.Errorf("device model get one by sn error: %v", err)
 		return nil, err
 	}
 	if !ok {
@@ -81,7 +81,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 			l.Logger.Errorf("push offline error: %v", err)
 		}
 	}
-	err = l.svcCtx.Cache.SetLoginBySn(l.ctx, req.GetSn(), cache.Login{
+	err = l.svcCtx.Cache.SetLoginBySn(l.ctx, req.GetSn(), ctypes.Login{
 		ServiceName: req.GetServiceName(),
 		IsEncrypt:   ciphertext != nil,
 	})
@@ -95,7 +95,7 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 	}, nil
 }
 
-func (l *iotLoginLogic) loginVerification(loginCache cache.Login, ciphertext any) error {
+func (l *iotLoginLogic) loginVerification(loginCache ctypes.Login, ciphertext any) error {
 
 	if ciphertext != nil {
 		return nil

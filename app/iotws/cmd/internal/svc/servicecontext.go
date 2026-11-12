@@ -13,7 +13,7 @@ import (
 	"rainiot/app/iotws/cmd/internal/ws"
 	"rainiot/pkg/alarm"
 	"rainiot/pkg/cache"
-	wsca "rainiot/pkg/cache/redis/ws"
+	"rainiot/pkg/cache/consts"
 	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/devicecli"
 	"rainiot/pkg/openconfig"
@@ -22,7 +22,7 @@ import (
 
 	"github.com/hibiken/asynq"
 	"github.com/lxzan/gws"
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/rest"
 )
 
@@ -61,18 +61,18 @@ func NewServiceContext(c *config.Config, ocp openconfig.OpenConfig) *ServiceCont
 	if ok {
 		registrycli.InitRegisterInstance(c.RestConf)
 	}
-	client := redis.NewClusterClient(&redis.ClusterOptions{
+	client := goredis.NewClusterClient(&goredis.ClusterOptions{
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	cacheCliWs := wsca.NewCacheCliWsClient(client)
+	cacheCliWs := cache.NewCacheCliWs(client)
 	c.DeviCliConfig.BuildDeviceServiceUrl(ocp)
 
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(instanceId, connection, cacheCliWs, c)
 	gateway.StartPing()
 	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, &c.DeviCliConfig, alarm.New(c.AlarmConfig))
-	queueName := cache.WsBalanceQueue(instanceId)
+	queueName := consts.WsBalanceQueue(instanceId)
 	srv := asynq.NewServerFromRedisClient(
 		client,
 		asynq.Config{

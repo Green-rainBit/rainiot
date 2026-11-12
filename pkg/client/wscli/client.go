@@ -16,7 +16,7 @@ const (
 )
 
 type WsCliInterface interface {
-	Push(ctx context.Context, seviceName, event string, req Request, Resp any) error
+	Push(ctx context.Context, event string, req Request, Resp any) error
 }
 
 type wsCli struct {
@@ -32,7 +32,7 @@ func NewWsCli(rdb *redis.ClusterClient) *wsCli {
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, seviceName, event string, req Request, resp any) error {
+func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) error {
 	if d.redis == nil {
 		return errors.New("wscli: redis client is nil")
 	}
@@ -52,7 +52,7 @@ func (d *wsCli) Push(ctx context.Context, seviceName, event string, req Request,
 		// todo
 
 	case eventHttp:
-		_, err = d.httpCli.Push(ctx, seviceName, event, jsonBytes)
+		_, err = d.httpCli.Push(ctx, event, jsonBytes)
 		if err != nil {
 			return err
 		}

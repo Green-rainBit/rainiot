@@ -6,12 +6,11 @@ package logic
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"strings"
 	"time"
 
 	"rainiot/app/iotcron/cmd/internal/svc"
-	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/consts"
+	"rainiot/pkg/cache/ctypes"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -33,11 +32,10 @@ func NewIotwsBalancedLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Iot
 }
 
 func (l *IotwsBalancedLogic) TryBalance(reason string) {
-	timeUnix, err := l.svcCtx.Redis.Get(l.ctx, cache.GetCacheWsBalancedLast()).Int64()
+	timeUnix, err := l.svcCtx.Cache.GetCacheWsBalancedLast(l.ctx)
 	if err == redis.Nil {
 		// 首次运行，初始化时间戳后继续
-		_ = l.svcCtx.Redis.Set(l.ctx, cache.GetCacheWsBalancedLast(),
-			time.Now().Add(-5*time.Minute).Unix(), 0).Err()
+		_ = l.svcCtx.Cache.SetWsBalancedLastTime(l.ctx)
 	} else if err != nil {
 		return
 	}
@@ -45,33 +43,18 @@ func (l *IotwsBalancedLogic) TryBalance(reason string) {
 	if timeLastat.Add(time.Minute * time.Duration(5)).After(time.Now()) {
 		return
 	}
-	var allKeys []string
-	pattern := cache.GetWsBalancedPublishCache("") + "*"
-
-	err = l.svcCtx.Redis.ForEachMaster(l.ctx, func(ctx context.Context, rdb *redis.Client) error {
-		iter := rdb.Scan(ctx, 0, pattern, 100).Iterator()
-		for iter.Next(ctx) {
-			allKeys = append(allKeys, iter.Val())
-		}
-		return iter.Err()
-	})
+	allKeys, err := l.svcCtx.Cache.GetAllWsBalancedPublishCache(l.ctx)
 	if err != nil {
 		return
 	}
 	wsBalancedMap := make(map[string]int, len(allKeys))
 	totalws := 0
-	prefix := cache.GetWsBalancedPublishCache("")
-	for _, key := range allKeys {
-		serverName := strings.TrimPrefix(key, prefix)
-		if serverName == "" {
-			continue
-		}
-		wsBalancedMap[serverName], err = l.svcCtx.Redis.GetDel(l.ctx, key).Int()
-		if err != nil {
-			l.Logger.Error(fmt.Sprintf("getdel error: %v", err))
-			continue
-		}
-		totalws += wsBalancedMap[serverName]
+	wsBalancedMap, err = l.svcCtx.Cache.GetDelConnNumByKeys(l.ctx, allKeys)
+	if err != nil {
+		return
+	}
+	for _, num := range wsBalancedMap {
+		totalws += num
 	}
 	l.IotwsBalanced(wsBalancedMap, totalws)
 }
@@ -129,7 +112,7 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 	}
 
 	for disconnectWsServerName, val := range disconnectWsOutreceiveSeverMap {
-		pub := cache.WsBalancedPublish{
+		pub := ctypes.WsBalancedPublish{
 			Meanws:                int64(meanws),
 			ReceiveWsserver:       val.ReceiveWsserver,
 			ReceiveWsserverAmount: val.ReceiveWsserverAmount,
@@ -141,8 +124,8 @@ func (l *IotwsBalancedLogic) IotwsBalanced(wsBalancedMap map[string]int, totalws
 			continue
 		}
 
-		queue := cache.WsBalanceQueue(disconnectWsServerName)
-		task := asynq.NewTask(cache.TaskTypeWsBalance, body)
+		queue := consts.WsBalanceQueue(disconnectWsServerName)
+		task := asynq.NewTask(consts.TaskTypeWsBalance, body)
 
 		info, err := l.svcCtx.AsynqClient.Enqueue(task,
 			asynq.Queue(queue),

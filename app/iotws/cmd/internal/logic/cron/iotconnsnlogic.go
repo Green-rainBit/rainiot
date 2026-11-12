@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"rainiot/app/iotws/cmd/internal/svc"
-	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/consts"
 
 	"github.com/lxzan/gws"
 	"github.com/zeromicro/go-zero/core/logx"
@@ -75,7 +75,7 @@ func (l *iotconnsnlogic) setIfExistsBatchResult(ctx context.Context, connectionI
 	for i, cmd := range cmds {
 		result, cmdErr := cmd.Int64()
 		if cmdErr != nil {
-			l.Logger.Error("setIfExistsBatchResult redis command error for key %s: %v", cache.GetCacheConn(connectionIds[i]), cmdErr)
+			l.Logger.Error("setIfExistsBatchResult redis command error for key %s: %v", consts.GetCacheConn(connectionIds[i]), cmdErr)
 			continue
 		}
 		if result == 1 {

@@ -2,27 +2,16 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
+
+	"rainiot/pkg/cache/ctypes"
+	"rainiot/pkg/cache/redisc"
 
 	goredis "github.com/redis/go-redis/v9"
 )
 
-type Login struct {
-	ServiceName string `json:"serviceName"`
-	IsEncrypt   bool   `json:"isEncrypt"`
-}
-
-func (l Login) MarshalBinary() ([]byte, error) {
-	return json.Marshal(l)
-}
-
-func (l *Login) UnmarshalBinary(data []byte) error {
-	return json.Unmarshal(data, l)
-}
-
 type CacheCliDevice interface {
-	SetLoginBySn(ctx context.Context, sn string, cacheLogin Login) error
-	GetLoginBySn(ctx context.Context, sn string) (Login, bool, error)
+	SetLoginBySn(ctx context.Context, sn string, cacheLogin ctypes.Login) error
+	GetLoginBySn(ctx context.Context, sn string) (ctypes.Login, bool, error)
 	Exists(ctx context.Context, key ...string) (int64, error)
 	Publish(ctx context.Context, channel string, message interface{}) error
 }
@@ -34,10 +23,22 @@ type CacheCliWs interface {
 	RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*goredis.Cmd, error)
 }
 
-// func NewCacheCliDevice(client *redis.Client) CacheCliDevice {
-// 	return &cacheCliDevice{client: client}
-// }
+type CacheCliCron interface {
+	GetCacheWsBalancedLast(ctx context.Context) (int64, error)
+	SetWsBalancedLastTime(ctx context.Context) error
+	GetAllWsBalancedPublishCache(ctx context.Context) ([]string, error)
+	GetDelConnNumByKeys(ctx context.Context, allKeys []string) (map[string]int, error)
+	Close() error
+}
 
-// func NewCacheCliWs(client *redis.Client) CacheCliWs {
-// 	return &ws.NewRedisClient{client: client}
-// }
+func NewCacheCliDevice(client *goredis.ClusterClient) CacheCliDevice {
+	return redisc.NewCacheDeviceClient(client)
+}
+
+func NewCacheCliWs(client *goredis.ClusterClient) CacheCliWs {
+	return redisc.NewCacheCliWsClient(client)
+}
+
+func NewCacheCliCron(client *goredis.ClusterClient) CacheCliCron {
+	return redisc.NewCacheCronClient(client)
+}

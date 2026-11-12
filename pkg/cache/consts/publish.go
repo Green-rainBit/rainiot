@@ -1,4 +1,4 @@
-package cache
+package consts
 
 import "regexp"
 
@@ -10,13 +10,6 @@ var (
 
 func GetWsBalancedPublishCache(serverName string) string {
 	return GetCacheKey(WsBalancedPublishCache + serverName)
-}
-
-type WsBalancedPublish struct {
-	Meanws int64
-
-	ReceiveWsserver       []string
-	ReceiveWsserverAmount []int64
 }
 
 func WsBalanceQueue(instanceId string) string {

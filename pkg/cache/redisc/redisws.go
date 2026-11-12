@@ -1,50 +1,51 @@
-package ws
+package redisc
 
 import (
 	"context"
 	"errors"
-	"rainiot/pkg/cache"
 	"time"
+
+	"rainiot/pkg/cache/consts"
 
 	"github.com/redis/go-redis/v9"
 	goredis "github.com/redis/go-redis/v9"
 )
 
-type redisCil struct {
+type redisCilws struct {
 	redis *goredis.ClusterClient
 }
 
-func NewCacheCliWsClient(redis *goredis.ClusterClient) cache.CacheCliWs {
-	return &redisCil{
+func NewCacheCliWsClient(redis *goredis.ClusterClient) *redisCilws {
+	return &redisCilws{
 		redis: redis,
 	}
 }
 
-func (r *redisCil) Script(ctx context.Context, src, connId, instanceId string) error {
+func (r *redisCilws) Script(ctx context.Context, src, connId, instanceId string) error {
 	if err := goredis.NewScript(src).Run(ctx, r.redis,
-		[]string{cache.GetCacheConn(connId)}, instanceId).Err(); err != nil {
+		[]string{consts.GetCacheConn(connId)}, instanceId).Err(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *redisCil) SetWsBalancedLastTime(ctx context.Context) error {
-	err := r.redis.Set(ctx, cache.GetCacheWsBalancedLast(), time.Now().Unix(), 0).Err()
+func (r *redisCilws) SetWsBalancedLastTime(ctx context.Context) error {
+	err := r.redis.Set(ctx, consts.GetCacheWsBalancedLast(), time.Now().Unix(), 0).Err()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *redisCil) SetConnNumByInstanceId(ctx context.Context, instanceId string, num int64) error {
-	err := r.redis.Set(ctx, cache.GetWsBalancedPublishCache(instanceId), num, time.Duration(5)*time.Second).Err()
+func (r *redisCilws) SetConnNumByInstanceId(ctx context.Context, instanceId string, num int64) error {
+	err := r.redis.Set(ctx, consts.GetWsBalancedPublishCache(instanceId), num, time.Duration(5)*time.Second).Err()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *redisCil) RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*redis.Cmd, error) {
+func (r *redisCilws) RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*redis.Cmd, error) {
 	pipe := r.redis.Pipeline()
 	cmds := make([]*redis.Cmd, len(connectionIds))
 
@@ -62,12 +63,12 @@ func (r *redisCil) RenewalWsConnByInstanceId(ctx context.Context, instanceId str
 
 	for i, connectionId := range connectionIds {
 		cmds[i] = pipe.Eval(ctx, renewConnLua,
-			[]string{cache.GetCacheConn(connectionId)}, instanceId,
-			cache.ConnTime.Milliseconds())
+			[]string{consts.GetCacheConn(connectionId)}, instanceId,
+			consts.ConnTime.Milliseconds())
 	}
 
 	_, err := pipe.Exec(ctx)
-	if err != nil && !errors.Is(err, redis.Nil) {
+	if err != nil && !errors.Is(err, goredis.Nil) {
 		// Pipeline 本身出现的致命错误（网络等）
 		return nil, err
 	}

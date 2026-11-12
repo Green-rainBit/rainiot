@@ -9,7 +9,7 @@ import (
 	"rainiot/app/iotws/cmd/internal/handler"
 	"rainiot/app/iotws/cmd/internal/logic"
 	"rainiot/app/iotws/cmd/internal/svc"
-	"rainiot/pkg/cache"
+	"rainiot/pkg/cache/consts"
 	plog "rainiot/pkg/log"
 	"rainiot/pkg/openconfig"
 
@@ -71,7 +71,7 @@ func main() {
 		cr.Stop()
 		sctx.Srv.Shutdown()
 
-		_ = sctx.Inspector.DeleteQueue(cache.WsBalanceQueue(sctx.GetInstanceId()), true)
+		_ = sctx.Inspector.DeleteQueue(consts.WsBalanceQueue(sctx.GetInstanceId()), true)
 		_ = sctx.Inspector.Close()
 	})
 

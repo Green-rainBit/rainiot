@@ -13,7 +13,6 @@ import (
 	"rainiot/app/iotdevice/cmd/internal/config"
 	"rainiot/app/iotdevice/model"
 	"rainiot/pkg/cache"
-	"rainiot/pkg/cache/redis"
 	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/wscli"
 	"rainiot/pkg/openconfig"
@@ -84,7 +83,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	}
 
 	svcCtx.DeviceModel = model.NewDeviceModel(conn)
-	svcCtx.Cache = redis.NewRedisClient(client)
+	svcCtx.Cache = cache.NewCacheCliDevice(client)
 	svcCtx.Registry = registrycli
 	svcCtx.Queue = mq
 	svcCtx.Wscli = wscli.NewWsCli(client)

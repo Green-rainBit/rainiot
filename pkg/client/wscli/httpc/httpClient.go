@@ -49,7 +49,7 @@ func (lb *RoundRobin) Pick(instances []string) string {
 
 func NewDeviceCli() *wsHttpCli {
 	return &wsHttpCli{
-		gethttpcli: fn,
+		// gethttpcli: fn,
 		retryCount: 3,
 		headers:    map[string]string{"Content-Type": "application/json"},
 		balancer:   &RoundRobin{},

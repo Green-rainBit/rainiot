@@ -2,6 +2,7 @@ package svc
 
 import (
 	"rainiot/app/iotcron/cmd/internal/config"
+	"rainiot/pkg/cache"
 	"strings"
 
 	"github.com/hibiken/asynq"
@@ -10,13 +11,9 @@ import (
 
 type ServiceContext struct {
 	Config config.Config
-	// AsynqServer *asynq.Server
-	AsynqClient *asynq.Client
-	Redis       *redis.ClusterClient
-	// MiniProgram *miniprogram.MiniProgram
 
-	// OrderRpc      order.Order
-	// UsercenterRpc usercenter.Usercenter
+	AsynqClient *asynq.Client
+	Cache       cache.CacheCliCron
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
@@ -26,7 +23,7 @@ func NewServiceContext(c config.Config) *ServiceContext {
 	})
 	return &ServiceContext{
 		Config:      c,
-		Redis:       client,
+		Cache:       cache.NewCacheCliCron(client),
 		AsynqClient: asynq.NewClientFromRedisClient(client),
 	}
 }
