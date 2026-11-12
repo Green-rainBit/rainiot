@@ -1,4 +1,4 @@
-package redis
+package device
 
 import (
 	"context"
@@ -12,7 +12,7 @@ type redisCil struct {
 	redis *goredis.ClusterClient
 }
 
-func NewRedisClient(redis *goredis.ClusterClient) cache.CacheCli {
+func NewCacheDeviceClient(redis *goredis.ClusterClient) cache.CacheCliDevice {
 	return &redisCil{
 		redis: redis,
 	}

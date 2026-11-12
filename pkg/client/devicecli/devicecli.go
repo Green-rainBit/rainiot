@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"rainiot/pkg/alarm"
-	conf_cli "rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/devicecli/grpc"
 	"rainiot/pkg/client/devicecli/httpc"
 	"rainiot/pkg/client/devicecli/mq"
@@ -17,7 +16,6 @@ import (
 	"rainiot/pkg/util"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/zrpc"
 )
 
 // DeviceCli 设备推送客户端接口。
@@ -77,18 +75,14 @@ type deviceCli struct {
 
 	// 热重载所需的构造依赖
 	currentServiceName string
-	confCli            conf_cli.ConfigCli
-	zrpcConf           zrpc.RpcClientConf
-	mqConfig           *openconfig.MQConfig
+	devCliCf           *openconfig.DeviCliConfig
 	alarmSender        alarm.Sender
 }
 
-func NewDeviceCli(model, serviceName string, confCli conf_cli.ConfigCli, zrpcConf zrpc.RpcClientConf, mqConfig *openconfig.MQConfig, alarmSender alarm.Sender) *deviceCli {
+func NewDeviceCli(model, serviceName string, devCliCf *openconfig.DeviCliConfig, alarmSender alarm.Sender) *deviceCli {
 	d := &deviceCli{
 		currentServiceName: serviceName,
-		confCli:            confCli,
-		zrpcConf:           zrpcConf,
-		mqConfig:           mqConfig,
+		devCliCf:           devCliCf,
 		alarmSender:        alarmSender,
 	}
 	d.initLocked(ParseMode(model))
@@ -100,13 +94,13 @@ func (d *deviceCli) initLocked(mode PushMode) {
 	d.mode = mode
 
 	if mode&ModeGRPC != 0 {
-		d.grpc = grpc.NewDeviceCli(d.currentServiceName, d.zrpcConf)
+		d.grpc = grpc.NewDeviceCli(d.currentServiceName, d.devCliCf.RpcCliConfig.RpcClientConf)
 	}
 	if mode&ModeHTTP != 0 {
-		d.http = httpc.NewDeviceCli(d.currentServiceName, d.confCli.GetHealthyInstances)
+		d.http = httpc.NewDeviceCli(d.currentServiceName, d.devCliCf.GetHealthyInstances)
 	}
-	if mode&ModeNATS != 0 && d.mqConfig != nil {
-		mqCli, err := mq.NewDeviceCli(d.currentServiceName, d.mqConfig)
+	if mode&ModeNATS != 0 && d.devCliCf.MqConfig != nil {
+		mqCli, err := mq.NewDeviceCli(d.currentServiceName, d.devCliCf.MqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] init nats client failed (disabled): %v", err)
 		} else {
@@ -141,14 +135,14 @@ func (d *deviceCli) Reload(model string) {
 	// ── 锁外：创建新客户端（网络 I/O，不阻塞 Push）──
 	var newGrpc, newHttp, newNats DeviceCli
 	if newMode&ModeGRPC != 0 && oldGrpc == nil {
-		newGrpc = grpc.NewDeviceCli(d.currentServiceName, d.zrpcConf)
+		newGrpc = grpc.NewDeviceCli(d.currentServiceName, d.devCliCf.RpcCliConfig.RpcClientConf)
 	}
 	if newMode&ModeHTTP != 0 && oldHttp == nil {
-		newHttp = httpc.NewDeviceCli(d.currentServiceName, d.confCli.GetHealthyInstances)
+		newHttp = httpc.NewDeviceCli(d.currentServiceName, d.devCliCf.GetHealthyInstances)
 	}
-	if newMode&ModeNATS != 0 && oldNats == nil && d.mqConfig != nil {
+	if newMode&ModeNATS != 0 && oldNats == nil && d.devCliCf.MqConfig != nil {
 		var err error
-		newNats, err = mq.NewDeviceCli(d.currentServiceName, d.mqConfig)
+		newNats, err = mq.NewDeviceCli(d.currentServiceName, d.devCliCf.MqConfig)
 		if err != nil {
 			logx.WithContext(context.Background()).Error("[deviceCli] hot-reload nats failed (disabled): %v", err)
 		}

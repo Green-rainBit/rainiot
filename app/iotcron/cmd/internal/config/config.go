@@ -14,5 +14,5 @@ type Config struct {
 	DeviceServer string
 	DevicePort   int
 	DviceHost    string
-	Loki         logloki.LokiConf `json:",optional"`
+	Loki         logloki.LokiConf `json:""`
 }

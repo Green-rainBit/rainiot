@@ -29,9 +29,9 @@ type Sender interface {
 
 // Config 企业微信 Webhook 配置。
 type Config struct {
-	Key     string `json:"key,optional"`     // webhook key，为空时从环境变量 WECHAT_WEBHOOK_KEY 读取
-	Enabled bool   `json:"enabled,optional"` // 是否启用告警
-	Timeout int    `json:"timeout,optional"` // HTTP 超时（秒），默认 10
+	Key     string `json:"key"`     // webhook key，为空时从环境变量 WECHAT_WEBHOOK_KEY 读取
+	Enabled bool   `json:"enabled"` // 是否启用告警
+	Timeout int    `json:"timeout"` // HTTP 超时（秒），默认 10
 }
 
 // wechatSender 企业微信群机器人实现。

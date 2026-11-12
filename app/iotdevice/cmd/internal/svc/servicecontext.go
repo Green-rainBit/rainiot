@@ -30,7 +30,7 @@ import (
 type ServiceContext struct {
 	config        atomic.Pointer[config.Config]
 	DeviceModel   model.DeviceModel
-	Cache         cache.CacheCli
+	Cache         cache.CacheCliDevice
 	NatsJetStream jetstream.JetStream
 	Registry      registry.Registry
 	Queue         queue.Queue
@@ -78,7 +78,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Addrs:    strings.Split(svcCtx.config.Load().CacheRedis.Host, ","),
 		Password: svcCtx.config.Load().CacheRedis.Pass,
 	})
-	mq, err := queue.NewBrokerFromConfig(context.Background(), &svcCtx.config.Load().MQ)
+	mq, err := queue.NewBrokerFromConfig(context.Background(), &svcCtx.config.Load().MqConfig)
 	if err != nil {
 		logx.Errorf("new broker from config: %v", err)
 	}

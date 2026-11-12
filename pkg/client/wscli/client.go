@@ -70,3 +70,7 @@ func (d *wsCli) Push(ctx context.Context, seviceName, event string, req Request,
 
 	return nil
 }
+
+func (d *wsCli) GetWsAddresse(string) []string {
+	return d.redis.Get
+}

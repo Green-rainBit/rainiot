@@ -8,20 +8,22 @@ import (
 	"time"
 
 	"rainiot/pkg/log/promtail"
+
 	"github.com/zeromicro/go-zero/core/logx"
 )
 
 // LokiConf Loki 日志配置。
 type LokiConf struct {
-	Enable      bool   `json:",optional"`
-	Mode        string `json:",optional,default=direct"`
-	Url         string `json:",optional"`
-	SourceName  string `json:",optional"`
-	JobName     string `json:",optional"`
-	BatchWait   int    `json:",optional,default=5"`
-	BatchSize   int    `json:",optional,default=10000"`
-	NatsSubject string `json:",optional,default=rainiot.logs"`
-	Console     bool   `json:",optional"`
+	Enable      bool     `json:""`
+	Mode        string   `json:",default=direct"`
+	Url         string   `json:""`
+	SourceName  string   `json:""`
+	JobName     string   `json:""`
+	BatchWait   int      `json:",default=5"`
+	BatchSize   int      `json:",default=10000"`
+	NatsSubject string   `json:",default=rainiot.logs"`
+	Console     bool     `json:""`
+	Addresses   []string `json:""`
 }
 
 // LogWrite 实现 logx.Writer 接口。
@@ -60,15 +62,15 @@ func NewLogWrite(cfg LokiConf) (*LogWrite, error) {
 
 // ---- logx.Writer 实现 ----
 
-func (l *LogWrite) Alert(v any)                              { l.client.Errorf("alert: %v", v) }
-func (l *LogWrite) Close() error                             { l.client.Close(); return nil }
-func (l *LogWrite) Severe(v any)                             { l.client.Errorf("severe: %v", v) }
-func (l *LogWrite) Stack(v any)                              { l.client.Infof("stack: %v", v) }
-func (l *LogWrite) Stat(v any, _ ...logx.LogField)           { l.client.Infof("stat: %v", v) }
-func (l *LogWrite) Debug(v any, f ...logx.LogField)          { l.client.Debugf("debug: %v%s", v, ff(f)) }
-func (l *LogWrite) Error(v any, f ...logx.LogField)          { l.client.Errorf("error: %v%s", v, ff(f)) }
-func (l *LogWrite) Info(v any, f ...logx.LogField)           { l.client.Infof("info: %v%s", v, ff(f)) }
-func (l *LogWrite) Slow(v any, f ...logx.LogField)           { l.client.Warnf("slow: %v%s", v, ff(f)) }
+func (l *LogWrite) Alert(v any)                     { l.client.Errorf("alert: %v", v) }
+func (l *LogWrite) Close() error                    { l.client.Close(); return nil }
+func (l *LogWrite) Severe(v any)                    { l.client.Errorf("severe: %v", v) }
+func (l *LogWrite) Stack(v any)                     { l.client.Infof("stack: %v", v) }
+func (l *LogWrite) Stat(v any, _ ...logx.LogField)  { l.client.Infof("stat: %v", v) }
+func (l *LogWrite) Debug(v any, f ...logx.LogField) { l.client.Debugf("debug: %v%s", v, ff(f)) }
+func (l *LogWrite) Error(v any, f ...logx.LogField) { l.client.Errorf("error: %v%s", v, ff(f)) }
+func (l *LogWrite) Info(v any, f ...logx.LogField)  { l.client.Infof("info: %v%s", v, ff(f)) }
+func (l *LogWrite) Slow(v any, f ...logx.LogField)  { l.client.Warnf("slow: %v%s", v, ff(f)) }
 
 func ff(fields []logx.LogField) string {
 	if len(fields) == 0 {

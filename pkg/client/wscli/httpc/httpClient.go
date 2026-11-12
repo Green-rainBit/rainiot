@@ -5,9 +5,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
+
 	"net/http"
 	"sync/atomic"
-	"time"
 )
 
 const (

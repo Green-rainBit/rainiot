@@ -11,7 +11,7 @@ type Notice struct {
 }
 
 type Request struct {
-	ConnId string `form:"connId,optional"`
+	ConnId string `form:"connId"`
 }
 
 type Response struct {

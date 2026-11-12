@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"rainiot/pkg/openconfig"
-	"rainiot/pkg/util"
+
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"rainiot/pkg/openconfig"
+	"rainiot/pkg/util"
 
 	"github.com/nacos-group/nacos-sdk-go/v2/clients"
 	"github.com/nacos-group/nacos-sdk-go/v2/clients/naming_client"

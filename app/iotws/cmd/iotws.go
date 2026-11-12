@@ -13,7 +13,6 @@ import (
 	plog "rainiot/pkg/log"
 	"rainiot/pkg/openconfig"
 
-	"github.com/hibiken/asynq"
 	"github.com/robfig/cron/v3"
 	"github.com/zeromicro/go-zero/core/conf"
 	"github.com/zeromicro/go-zero/core/proc"
@@ -33,7 +32,7 @@ func main() {
 	conf.MustLoad(*configNacosFile, &oconfig)
 
 	// 统一日志配置：根据 Loki.Mode 自动选择直写/桥接/双写
-	logWriter, err := plog.Setup(c.Log, c.Loki, c.MQ.NATS.Addresses)
+	logWriter, err := plog.Setup(c.Log, c.Loki, c.Loki.Addresses)
 	if err != nil {
 		log.Fatalf("log setup: %v", err)
 	}
@@ -44,45 +43,36 @@ func main() {
 	server := rest.MustNewServer(c.RestConf)
 	defer server.Stop()
 
-	ctx := svc.NewServiceContext(&c, oconfig)
+	sctx := svc.NewServiceContext(&c, oconfig)
 
-	l := logic.NewIotwsLogic(context.Background(), ctx.DeviceCli, ctx)
-	ctx.WireWsFn(l.Iotws)
+	l := logic.NewIotwsLogic(context.Background(), sctx.DeviceCli, sctx)
+	sctx.WireWsFn(l.Iotws)
 
-	handler.RegisterHandlers(server, ctx)
+	handler.RegisterHandlers(server, sctx)
 
 	cr := cron.New(cron.WithSeconds(), cron.WithChain(
 		cron.Recover(logWriter),
 		cron.SkipIfStillRunning(logWriter),
 	))
-	handler.RegisterCron(cr, ctx)
+	handler.RegisterCron(cr, sctx)
 	cr.Start()
 
-	mux := handler.Register(ctx)
+	mux := handler.Register(sctx)
 
-	queueName := cache.WsBalanceQueue(ctx.GetInstanceId())
-	srv := asynq.NewServerFromRedisClient(
-		ctx.Redis,
-		asynq.Config{
-			Concurrency: 10, // 并发 worker 数
-			Queues:      map[string]int{queueName: 1},
-		},
-	)
 	go func() {
-		if err := srv.Run(mux); err != nil {
+		if err := sctx.Srv.Run(mux); err != nil {
 			log.Fatalf("Server 运行失败: %v", err)
 		}
 	}()
 	// 注册优雅关闭:收到 SIGTERM/SIGINT 时,关闭 ws 长连接并停止 cron 调度。
 	// 该回调与 go-zero 的 HTTP 优雅关闭并发执行,共享默认 ~4.5s 宽限期。
 	proc.AddShutdownListener(func() {
-		ctx.CloseWs()
+		sctx.CloseWs()
 		cr.Stop()
-		srv.Shutdown()
+		sctx.Srv.Shutdown()
 
-		insp := asynq.NewInspectorFromRedisClient(ctx.Redis)
-		_ = insp.DeleteQueue(cache.WsBalanceQueue(ctx.GetInstanceId()), true)
-		_ = insp.Close()
+		_ = sctx.Inspector.DeleteQueue(cache.WsBalanceQueue(sctx.GetInstanceId()), true)
+		_ = sctx.Inspector.Close()
 	})
 
 	server.Start()

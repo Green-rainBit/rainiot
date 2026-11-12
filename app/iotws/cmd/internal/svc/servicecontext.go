@@ -12,32 +12,35 @@ import (
 	"rainiot/app/iotws/cmd/internal/config"
 	"rainiot/app/iotws/cmd/internal/ws"
 	"rainiot/pkg/alarm"
+	"rainiot/pkg/cache"
+	wsca "rainiot/pkg/cache/redis/ws"
 	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/devicecli"
-	"rainiot/pkg/client/devicecli/grpc/instances"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/registry"
 	"rainiot/pkg/util"
 
+	"github.com/hibiken/asynq"
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/rest"
-	"google.golang.org/grpc/resolver"
 )
 
 type ServiceContext struct {
+	Srv        *asynq.Server
+	Inspector  *asynq.Inspector
 	instanceId string
 	Config     *config.Config
-	Redis      *redis.ClusterClient
+	Cache      cache.CacheCliWs
 	Connection ws.Connection
 	DeviceCli  devicecli.DeviceCli
 	Upgrader   *gws.Upgrader
 	gateway    *ws.Gateway
 }
 
-func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
-	cf, ok, err := configcli.SyncConfig(openConfig, func(data string) {
-		unlock := c.Lock()
+func NewServiceContext(c *config.Config, ocp openconfig.OpenConfig) *ServiceContext {
+	cf, ok, err := configcli.SyncConfig(ocp, func(data string) {
+		unlock := c.DeviCliConfig.Lock()
 		json.Unmarshal([]byte(data), c)
 		unlock()
 	})
@@ -51,7 +54,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	if err != nil {
 		log.Fatalf("init instanceId err: %v", err)
 	}
-	registrycli, ok, err := registry.NewRegistry(openConfig)
+	registrycli, ok, err := registry.NewRegistry(ocp)
 	if err != nil {
 		log.Fatalf("init registry err: %v", err)
 	}
@@ -62,27 +65,28 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	configcli := c
-	if registrycli != nil && c.Rpc.Model == "nacos" {
-		if c.Rpc.RpcClientConf.Target == "" {
-			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl(c.Rpc.DeviceServiceName)
-		}
-	} else if c.Rpc.Model == "instances" {
-		resolver.Register(instances.NewBuilder(func() []string {
-			return configcli.GetHealthyInstances("grpc")
-		}))
-		c.Rpc.RpcClientConf.Target = "instances://" + c.Rpc.DeviceServiceName
-	}
+	cacheCliWs := wsca.NewCacheCliWsClient(client)
+	c.DeviCliConfig.BuildDeviceServiceUrl(ocp)
 
 	connection := ws.NewConnection()
-	gateway := ws.NewGatewayr(instanceId, connection, client, c)
+	gateway := ws.NewGatewayr(instanceId, connection, cacheCliWs, c)
 	gateway.StartPing()
-	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
+	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, &c.DeviCliConfig, alarm.New(c.AlarmConfig))
+	queueName := cache.WsBalanceQueue(instanceId)
+	srv := asynq.NewServerFromRedisClient(
+		client,
+		asynq.Config{
+			Concurrency: 10, // 并发 worker 数
+			Queues:      map[string]int{queueName: 1},
+		},
+	)
 
 	return &ServiceContext{
+		Srv:        srv,
+		Inspector:  asynq.NewInspectorFromRedisClient(client),
 		instanceId: instanceId,
 		Config:     c,
-		Redis:      client,
+		Cache:      cacheCliWs,
 		Connection: connection,
 		DeviceCli:  devCli,
 		gateway:    gateway,
