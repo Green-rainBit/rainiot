@@ -88,7 +88,7 @@ func (r *redisCilws) RenewalWsConnByInstanceId(ctx context.Context, instanceId s
 
 	_, err := pipe.Exec(ctx)
 	if err != nil && !errors.Is(err, goredis.Nil) {
-		// Pipeline 本身出现的致命错误（网络等）
+		logx.WithContext(ctx).Error(fmt.Sprintf("renewal ws conn by instanceId: %v", err))
 		return nil, err
 	}
 	return cmds, nil
