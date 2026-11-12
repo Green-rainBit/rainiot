@@ -13,28 +13,33 @@
     "Url": "http://localhost:3100",
     "SourceName": "rainiot",
     "JobName": "iotws-api",
-    "Console": true
+    "Console": true,
+    "addresses": [
+      "nats://localhost:14222"
+    ]
   },
   "CacheRedis": {
     "type": "cluster",
     "Host": "",
     "Pass": ""
   },
-  "Rpc": {
-    "Model": "instances"
-  },
-  "DeviceServers": {},
-  "mq": {
-    "type": "nats",
-    "topic": "iot_device",
-    "nats": {
-      "queueGroupPrefix": "",
-      "durablePrefix": "",
-      "autoProvision": false,
-      "subscribersCount": 0,
-      "addresses": [
-        "nats://localhost:14222"
-      ]
+  "TransportModel": "http,grpc",
+  "DeviCliConfig": {
+    "RpcCliConfig": {
+      "Model": "instances"
+    },
+    "MqConfig ": {
+      "type": "nats",
+      "topic": "iot_device",
+      "nats": {
+        "queueGroupPrefix": "",
+        "durablePrefix": "",
+        "autoProvision": false,
+        "subscribersCount": 0,
+        "addresses": [
+          "nats://localhost:14222"
+        ]
+      }
     }
   },
   "WsConf": {
@@ -49,9 +54,8 @@
   "MiddlewaresConf": {
     "Recover": true
   },
-  "TransportModel": "http,grpc",
   "AlarmConfig": {
-    "Key1": "",
+    "Key": "",
     "Enabled": false
   }
 }

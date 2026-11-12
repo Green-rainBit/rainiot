@@ -78,7 +78,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Addrs:    strings.Split(svcCtx.config.Load().CacheRedis.Host, ","),
 		Password: svcCtx.config.Load().CacheRedis.Pass,
 	})
-	mq, err := queue.NewBrokerFromConfig(context.Background(), &svcCtx.config.Load().MQ)
+	mq, err := queue.NewBrokerFromConfig(context.Background(), &svcCtx.config.Load().MqConfig)
 	if err != nil {
 		logx.Errorf("new broker from config: %v", err)
 	}
@@ -87,7 +87,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	svcCtx.Cache = redis.NewRedisClient(client)
 	svcCtx.Registry = registrycli
 	svcCtx.Queue = mq
-	svcCtx.Wscli = wscli.NewWsCli(svcCtx.config.Load().Name, svcCtx.config.Load(), client)
+	svcCtx.Wscli = wscli.NewWsCli(svcCtx.config.Load().Name, client)
 
 	// NATS 消费者在 main.go 中通过 NewNatsConsumer 创建并注入 handler，
 	// 以避免 svc → logic → svc 的循环导入。此处仅持有引用用于 defer Close。

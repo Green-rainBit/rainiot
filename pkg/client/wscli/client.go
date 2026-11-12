@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/wscli/httpc"
 
 	"github.com/redis/go-redis/v9"
@@ -25,9 +24,9 @@ type wsCli struct {
 	redis   *redis.ClusterClient
 }
 
-func NewWsCli(serviceName string, confCli configcli.ConfigCli, rdb *redis.ClusterClient) *wsCli {
+func NewWsCli(serviceName string, rdb *redis.ClusterClient) *wsCli {
 	wsCli := &wsCli{
-		httpCli: httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
+		httpCli: httpc.NewDeviceCli(serviceName),
 		redis:   rdb,
 	}
 	return wsCli

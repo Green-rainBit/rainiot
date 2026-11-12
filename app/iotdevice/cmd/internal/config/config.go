@@ -12,19 +12,12 @@ import (
 
 type Config struct {
 	rest.RestConf
-	Rpc             zrpc.RpcServerConf
-	DriverName      string
-	DataSource      string
-	CacheRedis      redis.RedisConf
-	MQ              openconfig.MQConfig `json:"mq"`
-	Loki            logloki.LokiConf    `json:",optional"`
-	DeviceServerMap map[string][]string `json:"deviceServerMap"`
+	Rpc        zrpc.RpcServerConf
+	DriverName string
+	DataSource string
+	CacheRedis redis.RedisConf
+	MqConfig   openconfig.MQConfig `json:""`
+	Loki       logloki.LokiConf    `json:""`
 
 	mu sync.RWMutex
-}
-
-func (c *Config) GetHealthyInstances(serviceName string) []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.DeviceServerMap[serviceName]
 }

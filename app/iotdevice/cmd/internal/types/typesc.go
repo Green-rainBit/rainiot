@@ -9,7 +9,7 @@ import (
 )
 
 type AckRequest struct {
-	MessageId string `form:"messageId ,optional"`
+	MessageId string `form:"messageId "`
 }
 
 type IotdeviceReq interface {
@@ -32,7 +32,6 @@ func (m *Request) Descriptor() ([]byte, []int) {
 func (m *Request) GetCmd() string {
 	return m.Cmd
 }
-
 
 func (m *Request) GetData() *structpb.Struct {
 	s := &structpb.Struct{}

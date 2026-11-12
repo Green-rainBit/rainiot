@@ -34,9 +34,9 @@ type Config struct {
 }
 
 type NatsConfig struct {
-	Urls       []string `json:",optional"`
+	Urls       []string `json:""`
 	Subject    string   `json:",default=rainiot.logs"`
-	QueueGroup string   `json:",optional,default=iotlogbridge"`
+	QueueGroup string   `json:",default=iotlogbridge"`
 }
 
 type LokiConfig struct {

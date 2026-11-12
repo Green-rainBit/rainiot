@@ -1,7 +1,6 @@
 package config
 
 import (
-	"sync"
 	"time"
 
 	"rainiot/pkg/alarm"
@@ -10,28 +9,20 @@ import (
 
 	"github.com/zeromicro/go-zero/core/stores/redis"
 	"github.com/zeromicro/go-zero/rest"
-	"github.com/zeromicro/go-zero/zrpc"
 )
 
 type Config struct {
 	rest.RestConf
-	Rpc struct {
-		zrpc.RpcClientConf
-		Model             string `json:",optional"`
-		DeviceServiceName string `json:",default=iotdevice.grpc"`
-	} `json:",optional"`
-	CacheRedis    redis.RedisConf
-	DeviceServers struct {
-		Httpc []string `json:",optional"`
-		Grpc  []string `json:",optional"`
-	}
-	Loki           logloki.LokiConf    `json:",optional"`
-	TransportModel string              `json:",optional"`
-	AlarmConfig    alarm.Config        `json:",optional"`
-	MQ             openconfig.MQConfig `json:"mq,optional"`
-	WsConf         WsConf              `json:",optional"`
 
-	mu sync.RWMutex
+	CacheRedis redis.RedisConf
+
+	TransportModel string `json:""`
+	DeviCliConfig  openconfig.DeviCliConfig
+	Loki           logloki.LokiConf `json:""`
+
+	AlarmConfig alarm.Config `json:""`
+
+	WsConf WsConf `json:""`
 }
 
 // WsConf WebSocket 服务器配置。
@@ -45,22 +36,4 @@ type WsConf struct {
 	ParallelEnabled     bool          `json:",default=true"`
 	ParallelGolimit     int           `json:",default=1024"`
 	CheckUtf8Enabled    bool          `json:",default=false"`
-}
-
-func (c *Config) GetHealthyInstances(model string) []string {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	switch model {
-	case "httpc":
-		return c.DeviceServers.Httpc
-	case "grpc":
-		return c.DeviceServers.Grpc
-	}
-	return nil
-}
-
-// Lock 在热更新写入前加锁，返回解锁函数
-func (c *Config) Lock() func() {
-	c.mu.Lock()
-	return c.mu.Unlock
 }

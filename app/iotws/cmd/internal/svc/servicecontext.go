@@ -14,7 +14,6 @@ import (
 	"rainiot/pkg/alarm"
 	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/devicecli"
-	"rainiot/pkg/client/devicecli/grpc/instances"
 	"rainiot/pkg/openconfig"
 	"rainiot/pkg/registry"
 	"rainiot/pkg/util"
@@ -22,7 +21,6 @@ import (
 	"github.com/lxzan/gws"
 	"github.com/redis/go-redis/v9"
 	"github.com/zeromicro/go-zero/rest"
-	"google.golang.org/grpc/resolver"
 )
 
 type ServiceContext struct {
@@ -35,9 +33,9 @@ type ServiceContext struct {
 	gateway    *ws.Gateway
 }
 
-func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *ServiceContext {
-	cf, ok, err := configcli.SyncConfig(openConfig, func(data string) {
-		unlock := c.Lock()
+func NewServiceContext(c *config.Config, ocp openconfig.OpenConfig) *ServiceContext {
+	cf, ok, err := configcli.SyncConfig(ocp, func(data string) {
+		unlock := c.DeviCliConfig.Lock()
 		json.Unmarshal([]byte(data), c)
 		unlock()
 	})
@@ -51,7 +49,7 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 	if err != nil {
 		log.Fatalf("init instanceId err: %v", err)
 	}
-	registrycli, ok, err := registry.NewRegistry(openConfig)
+	registrycli, ok, err := registry.NewRegistry(ocp)
 	if err != nil {
 		log.Fatalf("init registry err: %v", err)
 	}
@@ -62,22 +60,12 @@ func NewServiceContext(c *config.Config, openConfig openconfig.OpenConfig) *Serv
 		Addrs:    strings.Split(c.CacheRedis.Host, ","),
 		Password: c.CacheRedis.Pass,
 	})
-	configcli := c
-	if registrycli != nil && c.Rpc.Model == "nacos" {
-		if c.Rpc.RpcClientConf.Target == "" {
-			c.Rpc.RpcClientConf.Target = openConfig.RegistryConfig.BuildConfigUrl(c.Rpc.DeviceServiceName)
-		}
-	} else if c.Rpc.Model == "instances" {
-		resolver.Register(instances.NewBuilder(func() []string {
-			return configcli.GetHealthyInstances("grpc")
-		}))
-		c.Rpc.RpcClientConf.Target = "instances://" + c.Rpc.DeviceServiceName
-	}
+	c.DeviCliConfig.BuildDeviceServiceUrl(ocp)
 
 	connection := ws.NewConnection()
 	gateway := ws.NewGatewayr(instanceId, connection, client, c)
 	gateway.StartPing()
-	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, configcli, c.Rpc.RpcClientConf, &c.MQ, alarm.New(c.AlarmConfig))
+	devCli := devicecli.NewDeviceCli(c.TransportModel, instanceId, &c.DeviCliConfig, alarm.New(c.AlarmConfig))
 
 	return &ServiceContext{
 		instanceId: instanceId,
