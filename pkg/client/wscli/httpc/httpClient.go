@@ -25,7 +25,7 @@ type WsHttpCliInterface interface {
 }
 
 type wsHttpCli struct {
-	fn            func() []string
+	gethttpcli    func(string) string
 	retryCount    int
 	headers       map[string]string
 	balancer      LoadBalancer
@@ -46,13 +46,11 @@ func (lb *RoundRobin) Pick(instances []string) string {
 	return instances[n%uint64(len(instances))]
 }
 
-func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *wsHttpCli {
+func NewDeviceCli() *wsHttpCli {
 	return &wsHttpCli{
-		fn: func() []string {
-			return fn(serviceName)
-		},
+		gethttpcli: fn,
 		retryCount: 3,
-		headers:    map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},
+		headers:    map[string]string{"Content-Type": "application/json"},
 		balancer:   &RoundRobin{},
 		client: &http.Client{
 			Timeout: defaultHTTPTimeout,
@@ -67,7 +65,7 @@ func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *wsH
 	}
 }
 
-func (d *wsHttpCli) Push(ctx context.Context, connId string, message []byte) ([]byte, error) {
+func (d *wsHttpCli) Push(ctx context.Context, seviceName, connId string, message []byte) ([]byte, error) {
 	resp, err := d.do(ctx, http.MethodPost, "/notice", connId, bytes.NewBuffer(message), d.headers)
 	if err != nil {
 		return nil, err
@@ -82,11 +80,12 @@ func (d *wsHttpCli) Push(ctx context.Context, connId string, message []byte) ([]
 
 // Do 执行 HTTP 请求，自动故障转移
 func (d *wsHttpCli) do(ctx context.Context, method, path, connId string, body io.Reader, headers map[string]string) (*http.Response, error) {
-	instances := d.fn()
-	if len(instances) == 0 {
-		return nil, fmt.Errorf("无可用服务实例")
-	}
-
+	// addr := d.gethttpcli(seviceName)
+	// if addr == "" {
+	// 	return nil, fmt.Errorf("无可用服务实例")
+	// }
+	// todo 重构想要动态注册，不能写死配置
+	addr := ""
 	var bodyBytes []byte
 	if body != nil {
 		var err error
@@ -95,17 +94,8 @@ func (d *wsHttpCli) do(ctx context.Context, method, path, connId string, body io
 			return nil, fmt.Errorf("读取 body 失败: %w", err)
 		}
 	}
-	// 尝试多个实例（最多 retryCount 次）
-	tried := make(map[string]bool)
+	// 尝试多次（最多 retryCount 次）
 	for i := 0; i < d.retryCount; i++ {
-		// 选择一个实例（负载均衡）
-		addr := d.balancer.Pick(instances)
-		// 避免重复尝试同一个实例（可能已被标记失败）
-		if tried[addr] {
-			continue
-		}
-		tried[addr] = true
-
 		url := fmt.Sprintf("http://%s%s", addr, path)
 
 		buf := bytes.NewBuffer(bodyBytes)

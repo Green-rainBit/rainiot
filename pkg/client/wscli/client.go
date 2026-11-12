@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"rainiot/pkg/client/configcli"
 	"rainiot/pkg/client/wscli/httpc"
 
 	"github.com/redis/go-redis/v9"
@@ -17,7 +16,7 @@ const (
 )
 
 type WsCliInterface interface {
-	Push(ctx context.Context, event string, req Request, Resp any) error
+	Push(ctx context.Context, seviceName, event string, req Request, Resp any) error
 }
 
 type wsCli struct {
@@ -25,15 +24,15 @@ type wsCli struct {
 	redis   *redis.ClusterClient
 }
 
-func NewWsCli(serviceName string, confCli configcli.ConfigCli, rdb *redis.ClusterClient) *wsCli {
+func NewWsCli(rdb *redis.ClusterClient) *wsCli {
 	wsCli := &wsCli{
-		httpCli: httpc.NewDeviceCli(serviceName, confCli.GetHealthyInstances),
+		httpCli: httpc.NewDeviceCli(),
 		redis:   rdb,
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) error {
+func (d *wsCli) Push(ctx context.Context, seviceName, event string, req Request, resp any) error {
 	if d.redis == nil {
 		return errors.New("wscli: redis client is nil")
 	}
@@ -53,7 +52,7 @@ func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) e
 		// todo
 
 	case eventHttp:
-		_, err = d.httpCli.Push(ctx, event, jsonBytes)
+		_, err = d.httpCli.Push(ctx, seviceName, event, jsonBytes)
 		if err != nil {
 			return err
 		}

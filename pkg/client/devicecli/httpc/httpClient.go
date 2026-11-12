@@ -46,13 +46,13 @@ func (lb *RoundRobin) Pick(instances []string) string {
 	return instances[n%uint64(len(instances))]
 }
 
-func NewDeviceCli(serviceName string, fn func(serviceName string) []string) *deviceHttpCli {
+func NewDeviceCli(currentServiceName string, fn func(serviceName string) []string) *deviceHttpCli {
 	return &deviceHttpCli{
 		fn: func() []string {
-			return fn("iotdevice_api")
+			return fn("httpc")
 		},
 		retryCount: 3,
-		headers:    map[string]string{"Content-Type": "application/json", "ServiceName": serviceName},
+		headers:    map[string]string{"Content-Type": "application/json", "ServiceName": currentServiceName},
 		balancer:   &RoundRobin{},
 		client: &http.Client{
 			Timeout: defaultHTTPTimeout,

@@ -18,8 +18,8 @@ type iotAckLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-func newIotAckLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotErrorLogic {
-	return &iotErrorLogic{
+func newIotAckLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotAckLogic {
+	return &iotAckLogic{
 		Logger: logx.WithContext(ctx),
 		ctx:    ctx,
 		svcCtx: svcCtx,
