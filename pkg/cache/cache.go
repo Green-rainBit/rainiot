@@ -27,6 +27,7 @@ type CacheCliWs interface {
 	RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*goredis.Cmd, error)
 	SetAddrByInstanceId(ctx context.Context, instanceId, addr string) error
 	SubscribeTaskByInstanceId(ctx context.Context, instanceId string) <-chan *goredis.Message
+	PublishTaskByMsgId(ctx context.Context, msgId string, message any) error
 }
 
 type CacheCliCron interface {

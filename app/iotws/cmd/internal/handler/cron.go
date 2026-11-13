@@ -31,16 +31,22 @@ func Register(serverCtx *svc.ServiceContext) *asynq.ServeMux {
 	util.Go(
 		func() {
 			for msg := range msgs {
+				util.Go(
+					func() {
+						p := msg.Payload
+						i := strings.IndexByte(p, '|')
+						msgId := p[:i]
+						rest := p[i+1:]
+						j := strings.IndexByte(rest, '|')
+						event := rest[:j]
+						body := rest[j+1:] // 需要时才 Unmarshal
 
-				p := msg.Payload
-				i := strings.IndexByte(p, '|')
-				owner := p[:i]
-				rest := p[i+1:]
-				j := strings.IndexByte(rest, '|')
-				event := rest[:j]
-				body := rest[j+1:] // 需要时才 Unmarshal
+						err := logic.NewIotTaskLogic(context.Background(), serverCtx).IotTask(event, msgId, body)
+						if err != nil {
+							//serverCtx.Cache.PublishTaskByMsgId(context.Background(), msgId, ctypes.ErrorInfo{Code: "50000", Message: err.Error()})
+						}
+					})
 
-				logic.NewIotTaskLogic(context.Background(), serverCtx).IotTask(event, owner, body)
 			}
 		},
 	)

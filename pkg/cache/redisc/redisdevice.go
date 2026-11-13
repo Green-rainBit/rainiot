@@ -75,7 +75,7 @@ func (r *redisDevice) PublishByMessgId(ctx context.Context, event, messgId strin
 }
 
 func (r *redisDevice) PublishMsgByInstanceId(ctx context.Context, instanceId string, message interface{}) error {
-	err := r.redis.Publish(ctx, consts.PublishByIotTaskQueueAndInstanceId(instanceId), message).Err()
+	err := r.redis.Publish(ctx, consts.SubscribeByIotTaskQueueAndInstanceId(instanceId), message).Err()
 	if err != nil {
 		logx.WithContext(ctx).Error(fmt.Sprintf("publish msg by instanceId error: %v", err))
 		return err

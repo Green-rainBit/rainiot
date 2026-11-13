@@ -67,12 +67,12 @@ func (d *wsCli) Push(ctx context.Context, instanceId, event, connId string, req 
 		if err != nil {
 			return err
 		}
-		okSub := d.cache.SubscribeByMessgId(ctx, req.MessgeId)
+		// okSub := d.cache.SubscribeByMessgId(ctx, req.MessgeId)
 		err = d.cache.PublishMsgByInstanceId(ctx, instanceId, bytest.String())
 		if err != nil {
 			return err
 		}
-		<-okSub
+		// <-okSub
 
 	case eventHttp:
 		addr, ok, err := d.cache.GetAddrByInstanceId(ctx, instanceId)

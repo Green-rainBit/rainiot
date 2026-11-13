@@ -98,6 +98,15 @@ func (r *redisCilws) SetAddrByInstanceId(ctx context.Context, instanceId, addr s
 }
 
 func (r *redisCilws) SubscribeTaskByInstanceId(ctx context.Context, instanceId string) <-chan *goredis.Message {
-	sub := r.redis.Subscribe(ctx, consts.PublishByIotTaskQueueAndInstanceId(instanceId))
+	sub := r.redis.Subscribe(ctx, consts.SubscribeByIotTaskQueueAndInstanceId(instanceId))
 	return sub.Channel()
+}
+
+func (r *redisCilws) PublishTaskByMsgId(ctx context.Context, msgId string, message any) error {
+	err := r.redis.Publish(ctx, consts.SubscribeByIotTaskOKMsgId(msgId), message).Err()
+	if err != nil {
+		logx.WithContext(ctx).Error(fmt.Sprintf("publish by messgId error: %v", err))
+		return err
+	}
+	return nil
 }

@@ -22,3 +22,8 @@ type WsBalancedPublish struct {
 	ReceiveWsserver       []string
 	ReceiveWsserverAmount []int64
 }
+
+type ErrorInfo struct {
+	Code    string `json:"code"`    // 业务错误码，如 "STOCK_SHORTAGE"
+	Message string `json:"message"` // 可读的错误描述
+}

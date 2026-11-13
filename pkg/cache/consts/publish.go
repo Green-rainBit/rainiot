@@ -24,10 +24,6 @@ func GetIotTaskQueueByEventAndMsgId(event, messgId string) string {
 	return iotTask + event + messgId
 }
 
-func PublishByIotTaskQueueAndInstanceId(instanceId string) string {
-	return iotTask + instanceId
-}
-
 func SubscribeByIotTaskQueueAndInstanceId(instanceId string) string {
 	return iotTask + instanceId
 }
