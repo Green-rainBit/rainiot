@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"rainiot/pkg/cache"
 	"rainiot/pkg/client/wscli/httpc"
-
-	goredis "github.com/redis/go-redis/v9"
 )
 
 const (
@@ -44,10 +43,8 @@ func (d *wsCli) Push(ctx context.Context, instanceId, event, connId string, req 
 	if err != nil {
 		return err
 	}
-	var sub <-chan *goredis.Message
-	if resp != nil {
-		sub = d.cache.SubscribeByEventMessgId(ctx, event, req.MessgeId)
-	}
+
+	sub := d.cache.SubscribeByEventMessgId(ctx, event, req.MessgeId)
 	model := ""
 	switch model {
 	case eventQueue:
@@ -67,12 +64,10 @@ func (d *wsCli) Push(ctx context.Context, instanceId, event, connId string, req 
 		if err != nil {
 			return err
 		}
-		// okSub := d.cache.SubscribeByMessgId(ctx, req.MessgeId)
 		err = d.cache.PublishMsgByInstanceId(ctx, instanceId, bytest.String())
 		if err != nil {
 			return err
 		}
-		// <-okSub
 
 	case eventHttp:
 		addr, ok, err := d.cache.GetAddrByInstanceId(ctx, instanceId)
@@ -87,15 +82,19 @@ func (d *wsCli) Push(ctx context.Context, instanceId, event, connId string, req 
 			return err
 		}
 	}
-	if resp != nil {
-		redisMessage, ok := <-sub
+	select {
+	case redisMessage, ok := <-sub:
 		if !ok {
 			return errors.New("wscli: sub channel closed")
 		}
-		err = json.Unmarshal([]byte(redisMessage.Payload), resp)
-		if err != nil {
-			return err
+		if resp != nil {
+			err = json.Unmarshal([]byte(redisMessage.Payload), resp)
+			if err != nil {
+				return err
+			}
 		}
+	case <-time.After(10 * time.Second):
+		return errors.New("Timed out")
 	}
 
 	return nil
