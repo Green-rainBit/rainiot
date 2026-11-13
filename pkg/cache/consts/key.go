@@ -3,11 +3,12 @@ package consts
 import "time"
 
 const (
-	cacheConn           = "conn:"
-	cacheKeyPrefix      = "iot:cache:"
-	cacheWsServerName   = "iot:ws:server:"
-	cacheWsConn         = "iot:ws:conn:"
-	cacheWsBalancedLast = "iot:ws:balance:last" // balance in time
+	cacheConn              = "conn:"
+	cacheKeyPrefix         = "iot:cache:"
+	cacheWsServerName      = "iot:ws:server:"
+	cacheWsConn            = "iot:ws:conn:"
+	cacheWsBalancedLast    = "iot:ws:balance:last" // balance in time
+	WsBalancedPublishCache = "ws:balanced:publish:"
 
 	ConnTime = time.Minute * 6
 
@@ -16,10 +17,6 @@ const (
 
 func GetCacheConn(key string) string {
 	return cacheConn + key
-}
-
-func CacheWsServerNameLock(key string) string {
-	return GetCacheWsServerName(key) + ":lock"
 }
 
 func GetCacheKey(key string) string {
@@ -36,4 +33,8 @@ func GetCacheWsServerName(id string) string {
 
 func GetCacheWsBalancedLast() string {
 	return cacheWsBalancedLast
+}
+
+func GetWsBalancedPublishCache(serverName string) string {
+	return GetCacheKey(WsBalancedPublishCache + serverName)
 }

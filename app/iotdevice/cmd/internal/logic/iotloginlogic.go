@@ -75,14 +75,14 @@ func (l *iotLoginLogic) Iotdevice(req types.IotdeviceReq) (resp *types.Response,
 		offline := wscli.Request{
 			ConnId: device.Sn,
 		}
-		err = l.svcCtx.Wscli.Push(l.ctx, "kill", offline, nil)
+		err = l.svcCtx.Wscli.Push(l.ctx, loginCache.InstanceId, "kill", device.Sn, offline, nil)
 		if err != nil {
 			l.Logger.Errorf("push offline error: %v", err)
 		}
 	}
 	err = l.svcCtx.Cache.SetLoginBySn(l.ctx, req.GetSn(), ctypes.Login{
-		ServiceName: req.GetServiceName(),
-		IsEncrypt:   ciphertext != nil,
+		InstanceId: req.GetServiceName(),
+		IsEncrypt:  ciphertext != nil,
 	})
 	if err != nil {
 		return nil, err

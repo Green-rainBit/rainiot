@@ -15,25 +15,19 @@ import (
 
 const (
 	renewConnLua = `
-			local v = redis.call("GET", KEYS[1])
-			if not v then return -1 end
-			local owner = v
-			local ok, login = pcall(cjson.decode, v)
-			if ok and type(login) == "table" then
-				owner = login.serviceName or ""
-			end
+			local t = redis.call("TYPE", KEYS[1])["ok"]
+			if t == "none" then return -1 end
+			if t ~= "hash" then return 0 end
+
+			local owner = redis.call("HGET", KEYS[1], "serviceName")
+			if not owner then return 0 end
 			if owner ~= ARGV[1] then return 0 end
 			return redis.call("PEXPIRE", KEYS[1], ARGV[2])
 			`
-
+	// Delete check comfort for this service
 	renewConn = `
-		local v = redis.call("GET", KEYS[1])
-		if not v then return 0 end
-		local owner = v
-		local ok, login = pcall(cjson.decode, v)
-		if ok and type(login) == "table" then
-			owner = login.serviceName or ""
-		end
+		local owner = redis.call("HGET", KEYS[1], "serviceName")
+		if not owner then return 0 end
 		if owner ~= ARGV[1] then return 0 end
 		return redis.call("DEL", KEYS[1])
 		`
@@ -92,4 +86,18 @@ func (r *redisCilws) RenewalWsConnByInstanceId(ctx context.Context, instanceId s
 		return nil, err
 	}
 	return cmds, nil
+}
+
+func (r *redisCilws) SetAddrByInstanceId(ctx context.Context, instanceId, addr string) error {
+	err := r.redis.Set(ctx, consts.GetCacheWsServerName(instanceId), addr, time.Duration(6)*time.Minute).Err()
+	if err != nil {
+		logx.WithContext(ctx).Error(fmt.Sprintf("set addr by instanceId: %v", err))
+		return err
+	}
+	return nil
+}
+
+func (r *redisCilws) SubscribeTaskByInstanceId(ctx context.Context, instanceId string) <-chan *goredis.Message {
+	sub := r.redis.Subscribe(ctx, consts.PublishByIotTaskQueueAndInstanceId(instanceId))
+	return sub.Channel()
 }

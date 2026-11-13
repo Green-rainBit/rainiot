@@ -28,5 +28,5 @@ func newIotAckLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotAckLogi
 
 func (l *iotAckLogic) Iotdevice(req types.IotdeviceReq) (*types.Response, error) {
 	msg := req.GetData().AsMap()
-	return nil, l.svcCtx.Cache.Publish(l.ctx, req.GetCmd()+msg["messgeId"].(string), req)
+	return nil, l.svcCtx.Cache.PublishByMessgId(l.ctx, req.GetCmd(), msg["messgeId"].(string), req)
 }

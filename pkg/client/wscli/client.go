@@ -4,36 +4,39 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 
+	"rainiot/pkg/cache"
 	"rainiot/pkg/client/wscli/httpc"
 
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 const (
 	eventQueue = "queue"
 	eventHttp  = "http"
+	eventCache = "cache"
 )
 
 type WsCliInterface interface {
-	Push(ctx context.Context, event string, req Request, Resp any) error
+	Push(ctx context.Context, instanceId, event, connId string, req Request, Resp any) error
 }
 
 type wsCli struct {
 	httpCli httpc.WsHttpCliInterface
-	redis   *redis.ClusterClient
+	cache   cache.CacheCliDevice
 }
 
-func NewWsCli(rdb *redis.ClusterClient) *wsCli {
+func NewWsCli(rdb cache.CacheCliDevice) *wsCli {
 	wsCli := &wsCli{
 		httpCli: httpc.NewDeviceCli(),
-		redis:   rdb,
+		cache:   rdb,
 	}
 	return wsCli
 }
 
-func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) error {
-	if d.redis == nil {
+func (d *wsCli) Push(ctx context.Context, instanceId, event, connId string, req Request, resp any) error {
+	if d.cache == nil {
 		return errors.New("wscli: redis client is nil")
 	}
 
@@ -41,26 +44,53 @@ func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) e
 	if err != nil {
 		return err
 	}
-	var sub *redis.PubSub
+	var sub <-chan *goredis.Message
 	if resp != nil {
-		sub = d.redis.Subscribe(ctx, event+"Ack"+req.MessgeId)
-		defer sub.Close()
+		sub = d.cache.SubscribeByEventMessgId(ctx, event, req.MessgeId)
 	}
-
-	switch event {
+	model := ""
+	switch model {
 	case eventQueue:
-		// todo
+	// todo
+
+	case eventCache:
+		bytest := strings.Builder{}
+		_, err = bytest.WriteString(connId + "|")
+		if err != nil {
+			return err
+		}
+		_, err = bytest.WriteString(event + "|")
+		if err != nil {
+			return err
+		}
+		_, err = bytest.Write(jsonBytes)
+		if err != nil {
+			return err
+		}
+		okSub := d.cache.SubscribeByMessgId(ctx, req.MessgeId)
+		err = d.cache.PublishMsgByInstanceId(ctx, instanceId, bytest.String())
+		if err != nil {
+			return err
+		}
+		<-okSub
 
 	case eventHttp:
-		_, err = d.httpCli.Push(ctx, event, jsonBytes)
+		addr, ok, err := d.cache.GetAddrByInstanceId(ctx, instanceId)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("wscli: instanceId not found")
+		}
+		_, err = d.httpCli.Push(ctx, addr, event, connId, jsonBytes)
 		if err != nil {
 			return err
 		}
 	}
 	if resp != nil {
-		redisMessage, err := sub.ReceiveMessage(ctx)
-		if err != nil {
-			return err
+		redisMessage, ok := <-sub
+		if !ok {
+			return errors.New("wscli: sub channel closed")
 		}
 		err = json.Unmarshal([]byte(redisMessage.Payload), resp)
 		if err != nil {
@@ -69,8 +99,4 @@ func (d *wsCli) Push(ctx context.Context, event string, req Request, resp any) e
 	}
 
 	return nil
-}
-
-func (d *wsCli) GetWsAddresse(string) []string {
-	return d.redis.Get
 }

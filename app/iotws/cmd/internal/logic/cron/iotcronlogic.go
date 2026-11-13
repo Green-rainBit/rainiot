@@ -29,6 +29,6 @@ func NewIotsyncLogic(ctx context.Context, svcCtx *svc.ServiceContext) *iotsyncLo
 func (l *iotsyncLogic) Iotsync() {
 	err := l.svcCtx.Cache.SetConnNumByInstanceId(l.ctx, l.svcCtx.GetInstanceId(), l.svcCtx.Connection.GetConnByCount())
 	if err != nil {
-		l.Logger.Error(fmt.Sprintf("iotsyncLogic iotsync setxx error: %v", err))
+		l.Logger.Error(fmt.Sprintf("set conn num error: %v", err))
 	}
 }

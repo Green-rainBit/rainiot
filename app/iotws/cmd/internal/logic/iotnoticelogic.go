@@ -32,7 +32,7 @@ func NewIotNoticeLogic(ctx context.Context, svcCtx *svc.ServiceContext) *IotNoti
 func (l *IotNoticeLogic) IotNotice(req *types.Notice) error {
 	conn, ok := l.svcCtx.Connection.GetConnByConnId(req.ConnId)
 	if !ok {
-		return errors.New("设备未连接")
+		return errors.New("object not connected")
 	}
 	switch co := conn.(type) {
 	case *gws.Conn:
@@ -46,12 +46,11 @@ func (l *IotNoticeLogic) IotNotice(req *types.Notice) error {
 }
 
 func (l *IotNoticeLogic) Handle(req *types.Notice) error {
-	switch req.Cmd {
+	switch req.Event {
 	case cmd.WsKill:
 		killLogic := NewIotKillLogic(l.ctx, l.svcCtx)
 		return killLogic.IotKill(req)
 	default:
 		return nil
 	}
-
 }

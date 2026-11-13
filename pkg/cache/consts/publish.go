@@ -3,15 +3,35 @@ package consts
 import "regexp"
 
 var (
-	WsBalancedPublishCache = "ws:balanced:publish:"
-	TaskTypeWsBalance      = "iot:cache:"
-	queueNameRe            = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
+	TaskTypeWsBalance = "task:balance"
+	iotTask           = "iot:task:"
+	queueNameRe       = regexp.MustCompile(`[^a-zA-Z0-9_-]`)
 )
-
-func GetWsBalancedPublishCache(serverName string) string {
-	return GetCacheKey(WsBalancedPublishCache + serverName)
-}
 
 func WsBalanceQueue(instanceId string) string {
 	return "ws-" + queueNameRe.ReplaceAllString(instanceId, "-")
+}
+
+func GetTaskTypeWsBalance(event string) string {
+	return TaskTypeWsBalance
+}
+
+func SubscribeIotTaskQueueAckByEventAndMsgId(event, messgId string) string {
+	return iotTask + event + "Ack:" + messgId
+}
+
+func GetIotTaskQueueByEventAndMsgId(event, messgId string) string {
+	return iotTask + event + messgId
+}
+
+func PublishByIotTaskQueueAndInstanceId(instanceId string) string {
+	return iotTask + instanceId
+}
+
+func SubscribeByIotTaskQueueAndInstanceId(instanceId string) string {
+	return iotTask + instanceId
+}
+
+func SubscribeByIotTaskOKMsgId(msgId string) string {
+	return iotTask + msgId
 }

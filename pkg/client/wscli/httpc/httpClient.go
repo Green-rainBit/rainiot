@@ -22,13 +22,12 @@ type LoadBalancer interface {
 }
 
 type WsHttpCliInterface interface {
-	Push(ctx context.Context, connId string, message []byte) ([]byte, error)
+	Push(ctx context.Context, addr, event, connId string, message []byte) ([]byte, error)
 }
 
 type wsHttpCli struct {
 	gethttpcli    func(string) string
 	retryCount    int
-	headers       map[string]string
 	balancer      LoadBalancer
 	client        *http.Client
 	retryInterval time.Duration
@@ -49,9 +48,7 @@ func (lb *RoundRobin) Pick(instances []string) string {
 
 func NewDeviceCli() *wsHttpCli {
 	return &wsHttpCli{
-		// gethttpcli: fn,
 		retryCount: 3,
-		headers:    map[string]string{"Content-Type": "application/json"},
 		balancer:   &RoundRobin{},
 		client: &http.Client{
 			Timeout: defaultHTTPTimeout,
@@ -66,8 +63,13 @@ func NewDeviceCli() *wsHttpCli {
 	}
 }
 
-func (d *wsHttpCli) Push(ctx context.Context, seviceName, connId string, message []byte) ([]byte, error) {
-	resp, err := d.do(ctx, http.MethodPost, "/notice", connId, bytes.NewBuffer(message), d.headers)
+func (d *wsHttpCli) Push(ctx context.Context, addr, event, connId string, message []byte) ([]byte, error) {
+	headers := map[string]string{
+		"Content-Type": "application/json",
+		"ConnId":       connId,
+		"Event":        event,
+	}
+	resp, err := d.do(ctx, http.MethodPost, "/notice", connId, bytes.NewBuffer(message), headers)
 	if err != nil {
 		return nil, err
 	}

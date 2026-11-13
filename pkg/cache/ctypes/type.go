@@ -3,8 +3,9 @@ package ctypes
 import "encoding/json"
 
 type Login struct {
-	ServiceName string `json:"serviceName"`
-	IsEncrypt   bool   `json:"isEncrypt"`
+	InstanceId string `redis:"instanceId"`
+	Addrs      string `redis:"addrs"`
+	IsEncrypt  bool   `redis:"isEncrypt"`
 }
 
 func (l Login) MarshalBinary() ([]byte, error) {

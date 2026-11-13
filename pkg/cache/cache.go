@@ -12,8 +12,12 @@ import (
 type CacheCliDevice interface {
 	SetLoginBySn(ctx context.Context, sn string, cacheLogin ctypes.Login) error
 	GetLoginBySn(ctx context.Context, sn string) (ctypes.Login, bool, error)
+	GetAddrByInstanceId(ctx context.Context, instanceId string) (string, bool, error)
 	Exists(ctx context.Context, key ...string) (int64, error)
-	Publish(ctx context.Context, channel string, message interface{}) error
+	PublishByMessgId(ctx context.Context, event, messgId string, message interface{}) error
+	SubscribeByEventMessgId(ctx context.Context, event, messgId string) <-chan *goredis.Message
+	SubscribeByMessgId(ctx context.Context, msgId string) <-chan *goredis.Message
+	PublishMsgByInstanceId(ctx context.Context, instanceId string, message interface{}) error
 }
 
 type CacheCliWs interface {
@@ -21,6 +25,8 @@ type CacheCliWs interface {
 	SetWsBalancedLastTime(ctx context.Context) error
 	SetConnNumByInstanceId(ctx context.Context, instanceId string, num int64) error
 	RenewalWsConnByInstanceId(ctx context.Context, instanceId string, connectionIds []string) ([]*goredis.Cmd, error)
+	SetAddrByInstanceId(ctx context.Context, instanceId, addr string) error
+	SubscribeTaskByInstanceId(ctx context.Context, instanceId string) <-chan *goredis.Message
 }
 
 type CacheCliCron interface {

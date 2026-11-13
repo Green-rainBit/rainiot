@@ -4,10 +4,9 @@
 package types
 
 type Notice struct {
-	ConnId   string `json:"connId"`
-	MessgeId string `json:"messageId"`
-	Data     []byte `json:"data"`
-	Cmd      string `json:"cmd"`
+	ConnId string `header:"ConnId"`
+	Data   []byte `json:"data"`
+	Event  string `header:"Event"`
 }
 
 type Request struct {

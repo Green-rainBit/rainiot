@@ -14,11 +14,11 @@ import (
 type Config struct {
 	rest.RestConf
 
-	CacheRedis redis.RedisConf
-
-	TransportModel string `json:""`
-	DeviCliConfig  openconfig.DeviCliConfig
-	Loki           logloki.LokiConf `json:""`
+	CacheRedis     redis.RedisConf
+	NotifyAddr     string
+	TransportModel string                   `json:""`
+	DeviCliConfig  openconfig.DeviCliConfig `json:""`
+	Loki           logloki.LokiConf         `json:""`
 
 	AlarmConfig alarm.Config `json:""`
 	WsConf      WsConf       `json:""`
